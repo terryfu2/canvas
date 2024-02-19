@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import '../styles/pixel.scss';
 
-function Pixel({ xCoord, yCoord, selectedColor }) {
+function Pixel({ xCoord, yCoord, selectedColor, handleHover }) {
   const [pixelColor, setPixelColor] = useState('#fff');
   const [oldColor, setOldColor] = useState(pixelColor);
   const [canChangeColor, setCanChangeColor] = useState(true);
@@ -30,13 +30,27 @@ function Pixel({ xCoord, yCoord, selectedColor }) {
     setPixelColor('#fff');
   };
 
+  const handleMouseEnter = () => {
+    // Get the coordinates of the pixel
+    // For example, assuming x and y are obtained somehow
+    const x = xCoord; // Get the x coordinate
+    const y = yCoord; // Get the y coordinate
+    const color = pixelColor;
+    handleHover(x, y,color);
+  };
+  const handleMouseEnterWrapper = () => {
+    //changeColorOnHover();
+    handleMouseEnter();
+  };
+
+  //onMouseLeave={resetColor}
   return (
     <div 
       className='pixel' 
       style={{backgroundColor: pixelColor}}
       onClick={applyColor} 
-      onMouseEnter={changeColorOnHover} 
-      onMouseLeave={resetColor}
+      onMouseEnter={handleMouseEnterWrapper} 
+      
       onDoubleClick={removeColor}
     >
 

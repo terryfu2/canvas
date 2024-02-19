@@ -10,10 +10,10 @@ function App() {
     <div className="App">
         <Title/>
         <Canvas 
-            width={225}
-            height={150}
+            width={226}
+            height={151}
         /> 
-        <Footer/>
+        
     </div>
     ); 
 }

@@ -12,8 +12,23 @@ const TextStyle = {
     
 };
 
-export const Footer = () => (
-  <div style= {TextStyle}>
-      100,100
-  </div>
+const ColorBoxStyle = (currentColor) => ({
+    width: '40px',
+    height: '40px',
+    backgroundColor: currentColor,
+    display: 'inline-block',
+    marginLeft: '5px',
+    border: '1px solid black'
+});
+
+export const Footer = ({ xCoord, yCoord,current_color }) => (
+    <div style={TextStyle}>
+        <div style={ColorBoxStyle(current_color)}></div>
+        <br></br>
+        {xCoord},{yCoord}
+        
+        
+       
+    </div>
+    
 );

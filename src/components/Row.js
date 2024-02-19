@@ -2,11 +2,11 @@ import React from 'react';
 import Pixel from './Pixel';
 import '../styles/row.scss';
 
-function Row({ xCoord, width, selectedColor }) {
+function Row({ xCoord, width, selectedColor ,handleHover }) {
   let pixels = [];
 
   for (let i = 0; i < width; i++) {
-    pixels.push(<Pixel key={i} xCoord = {xCoord} yCoord = {i} selectedColor={selectedColor} />);
+    pixels.push(<Pixel key={i} xCoord = {xCoord} yCoord = {i} selectedColor={selectedColor} handleHover={handleHover}/>);
   }
 
   return (
