@@ -1,0 +1,22 @@
+@import "properties.scss";
+@import url('https://fonts.googleapis.com/css2?family=Play:wght@400;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  //background-color: #ffffff;
+  //temp color to debug and see full canvas, recemmond white for final
+  background-color: #F9F9ED;
+  color: $white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  min-width: fit-content;
+  //height: 100%;
+  overflow: hidden;   
+}
