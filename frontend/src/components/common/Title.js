@@ -12,10 +12,10 @@ const Logo = styled.div`
     opacity: 1;
   }
   & > h1 {
-    font-size: 40px;
+    font-size: 40px; 
     margin: 0 0;
     & > a {
-      text-decoration: none;
+      text-decoration: none; 
       position: relative;
       color: #7ec4cf;
     }

@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import Row from './Row';
-import { Footer } from './Footer';
+import Row from './pixels/Row';
+import { CurrentPixel } from './pixels/CurrentPixel';
 
 import '../styles/drawingPanel.scss';
 
@@ -32,7 +32,7 @@ function Canvas({ width, height }) {
             <div id="pixels" ref={componentRef}>
                 {rows}
             </div>
-            <Footer xCoord={xCoord} yCoord={yCoord} current_color={current_color} setSelectedColor={handleColorSelect}/>
+            <CurrentPixel xCoord={xCoord} yCoord={yCoord} current_color={current_color} setSelectedColor={handleColorSelect}/>
         </div>
     );
 }

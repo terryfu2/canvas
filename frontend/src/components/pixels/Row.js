@@ -1,6 +1,6 @@
 import React from 'react';
 import Pixel from './Pixel';
-import '../styles/row.scss';
+import '../../styles/row.scss'; 
 
 function Row({ xCoord, width, selectedColor ,handleHover }) {
   let pixels = [];

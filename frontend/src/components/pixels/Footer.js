@@ -3,7 +3,7 @@ import { CirclePicker,CompactPicker } from 'react-color';
 
 function Footer({ xCoord, yCoord,current_color,setSelectedColor  }){
 
-
+ 
     const TextStyle = {
         position: 'fixed',
         bottom: '3em',

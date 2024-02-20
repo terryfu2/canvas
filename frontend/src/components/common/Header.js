@@ -1,3 +1,4 @@
+/*
 import React, { useRef } from 'react';
 import { exportComponentAsPNG } from 'react-component-export-image';
 
@@ -32,4 +33,4 @@ const headerStyle = {
     padding: '10px'
 };
 
-export default Header;
+export default Header;*/

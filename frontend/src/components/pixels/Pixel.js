@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import '../styles/pixel.scss';
+import '../../styles/pixel.scss'; 
 
 function Pixel({ xCoord, yCoord, selectedColor, handleHover }) {
   const [pixelColor, setPixelColor] = useState('#fff');
