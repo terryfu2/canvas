@@ -33,11 +33,12 @@ function Pixel({ xCoord, yCoord, selectedColor, handleHover }) {
   const handleMouseEnter = () => {
     // Get the coordinates of the pixel
     // For example, assuming x and y are obtained somehow
-    const x = xCoord; // Get the x coordinate
-    const y = yCoord; // Get the y coordinate
-    const color = pixelColor;
-    handleHover(x, y,color);
+    //const x = xCoord; // Get the x coordinate
+    //const y = yCoord; // Get the y coordinate
+    //const color = pixelColor;
+    handleHover(xCoord, yCoord,pixelColor);
   };
+
   const handleMouseEnterWrapper = () => {
     //changeColorOnHover();
     handleMouseEnter();

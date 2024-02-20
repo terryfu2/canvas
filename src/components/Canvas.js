@@ -8,7 +8,9 @@ function Canvas({ width, height }) {
     const componentRef = useRef();
     const [xCoord, setXCoord] = useState(null);
     const [yCoord, setYCoord] = useState(null);
-    const [current_color,setColor] = useState(null);
+    const [current_color,setColor] = useState('#fff');
+    const [selectedColor, setSelectedColor] = useState('#f44336');
+
     let rows = [];
 
     const handleHover = (x, y,color) => {
@@ -17,8 +19,12 @@ function Canvas({ width, height }) {
         setColor(color);
     };
 
+    const handleColorSelect = (color) => {
+        setSelectedColor(color.hex)
+    }
+
     for (let i = 0; i < height; i++) {
-        rows.push(<Row key={i} xCoord = {i} width={width} selectedColor={'#f44336'} handleHover={handleHover}/>);
+        rows.push(<Row key={i} xCoord = {i} width={width} selectedColor={selectedColor} handleHover={handleHover}/>);
     }
 
     return (
@@ -26,7 +32,7 @@ function Canvas({ width, height }) {
             <div id="pixels" ref={componentRef}>
                 {rows}
             </div>
-            <Footer xCoord={xCoord} yCoord={yCoord} current_color={current_color}/>
+            <Footer xCoord={xCoord} yCoord={yCoord} current_color={current_color} setSelectedColor={handleColorSelect}/>
         </div>
     );
 }
