@@ -11,7 +11,7 @@ function Canvas({ width, height }) {
     const [current_color,setColor] = useState('#fff');
     const [selectedColor, setSelectedColor] = useState('#f44336');
 
-    let rows = [];
+   
 
     const handleHover = (x, y,color) => {
         setXCoord(x);
@@ -23,6 +23,7 @@ function Canvas({ width, height }) {
         setSelectedColor(color.hex)
     }
 
+    let rows = [];
     for (let i = 0; i < height; i++) {
         rows.push(<Row key={i} xCoord = {i} width={width} selectedColor={selectedColor} handleHover={handleHover}/>);
     }
