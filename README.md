@@ -6,4 +6,5 @@ poc of frontend with pixel grid, ability to add and remove color on pixels
 ```
 cd frontend
 npm install
+npm start
 ```
