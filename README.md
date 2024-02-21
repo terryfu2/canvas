@@ -8,3 +8,12 @@ cd frontend
 npm install
 npm start
 ```
+
+
+### To-dos
+```
+per pixel/global color picker to change color when pixel is clicked
+proxy connection and implementation
+backend connection and implementation
+set up hosted db (mongodb?)
+```
