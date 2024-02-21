@@ -9,7 +9,12 @@ function Pixel({ xCoord, yCoord, selectedColor, handleHover }) {
   const applyColor = () => {
     setPixelColor(selectedColor);
     setCanChangeColor(false);
-    console.log(xCoord + ' ' + yCoord + ' ' + selectedColor);
+
+    const now = new Date();
+    const currentTime = now.toLocaleTimeString(); 
+    const milliseconds = now.getMilliseconds();
+    //pay load to backend
+    console.log(xCoord + ' ' + yCoord + ' ' + selectedColor + ' ' + currentTime + " " + milliseconds);
   };
 
   const changeColorOnHover = () => {
