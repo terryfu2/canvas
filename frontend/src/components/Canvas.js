@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import Row from './pixels/Row';
 import { CurrentPixel } from './pixels/CurrentPixel';
+import { MapInteractionCSS } from 'react-map-interaction';
+
 
 import '../styles/drawingPanel.scss';
 
@@ -29,12 +31,14 @@ function Canvas({ width, height }) {
     }
 
     return (
-        <div id="drawing-panel">
-            <div id="pixels" ref={componentRef}>
-                {rows}
+        <MapInteractionCSS>
+            <div id="drawing-panel">
+                <div id="pixels" ref={componentRef}>
+                    {rows}
+                </div>
+                <CurrentPixel xCoord={xCoord} yCoord={yCoord} current_color={current_color} setSelectedColor={handleColorSelect}/>
             </div>
-            <CurrentPixel xCoord={xCoord} yCoord={yCoord} current_color={current_color} setSelectedColor={handleColorSelect}/>
-        </div>
+        </MapInteractionCSS>
     );
 }
 
