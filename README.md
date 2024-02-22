@@ -17,3 +17,12 @@ proxy connection and implementation
 backend connection and implementation
 set up hosted db (mongodb?)
 ```
+## Backend
+```
+Download docker https://www.docker.com/products/docker-desktop/ (windows)
+cd backend
+# Start
+docker compose up -d
+# Stop
+docker compose down
+```
