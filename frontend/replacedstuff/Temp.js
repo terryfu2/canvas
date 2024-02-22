@@ -97,11 +97,11 @@ const ExampleApp = () => {
   }
   return (
     <div style={{ width: '100%', height: '100vh' }}>
-      <h1>Pixel Grid Example</h1>
-      {/* Set width and height to 100% */}
-      <MapInteractionCSS style={{ width: '100%', height: '100%' }}>
+     
+      
+      
         <PixelGrid width={window.innerWidth} height={window.innerHeight} pixels={pixels} />
-      </MapInteractionCSS>
+      
     </div>
   );
 };
