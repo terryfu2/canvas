@@ -30,13 +30,14 @@ const Canvas = ({ width, height, pixels }) => {
     const handleClickPixel = (event) => {
         const canvas = canvasRef.current;
         const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = (event.clientX - rect.left) * scaleX;
+        const y = (event.clientY - rect.top) * scaleY;
     
-        const clickedPixel = pixels.find(pixel => x >= pixel.x && x < pixel.x + 10 && y >= pixel.y && y < pixel.y + 10);        
+        const clickedPixel = pixels.find(pixel => x >= pixel.x && x < pixel.x + 10 && y >= pixel.y && y < pixel.y + 10);
         if (clickedPixel) {
-            setDialogCoordinates({ x: clickedPixel.x, y: clickedPixel.y , color: clickedPixel.color});
-            
+            setDialogCoordinates({ x: clickedPixel.x, y: clickedPixel.y, color: clickedPixel.color });
         }
         setClickedPixel(clickedPixel);
     };
@@ -44,8 +45,11 @@ const Canvas = ({ width, height, pixels }) => {
     const handleMouseMove = (event) => {
         const canvas = canvasRef.current;
         const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = (event.clientX - rect.left) * scaleX;
+        const y = (event.clientY - rect.top) * scaleY;
+    
 
         const pixel = pixels.find(pixel => x >= pixel.x && x < pixel.x + 10 && y >= pixel.y && y < pixel.y + 10);
         setHoveredPixel(pixel);
@@ -67,17 +71,18 @@ const Canvas = ({ width, height, pixels }) => {
         setDialogCoordinates(null);
         setClickedPixel(null);
     }
+
     
     return (
         <div>
-       
-       
+            <MapInteractionCSS>
+
             <canvas ref={canvasRef} width={width} height={height} style={{ width: '100%', height: '100%', cursor: 'pointer' }} onClick={handleClickPixel} onMouseMove={handleMouseMove}/>
             {dialogCoordinates && <PixelPopUp x={dialogCoordinates.x} y={dialogCoordinates.y} color = {dialogCoordinates.color} onClose={handleCloseDialog} onConfirm={handleConfirm}/>}
             
+            </MapInteractionCSS>
         
-        
-        <Footer x={hoveredPixel.x} y={hoveredPixel.y}></Footer>
+            <Footer x={hoveredPixel.x} y={hoveredPixel.y}></Footer>
         </div>
     );
 };

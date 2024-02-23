@@ -14,6 +14,7 @@ const PixelPopUp = ({ x, y, color,onClose ,onConfirm}) => {
     });
 
     const PopUpStyle = (topPosition,x) =>({
+        
         position: 'fixed', 
         top: topPosition, 
         left: `${x}px`, 

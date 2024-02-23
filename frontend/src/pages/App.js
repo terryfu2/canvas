@@ -22,7 +22,7 @@ function App() {
     console.log(pixels);
     
     return (
-        <div className="App" overflow ='auto' >
+        <div className="App" >
 
             <Canvas width={1980} height={1020} pixels={pixels}></Canvas>
             
