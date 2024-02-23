@@ -15,9 +15,14 @@ function App() {
     
     for(var i = 0;i<1000;i++){
         for(var j = 0;j<1000;j++){
+
+            
+
             pixels.push(new Pixel(i*10,j*10,'white'));
         }
     }
+
+    console.log(pixels);
     
     return (
         <div className="App">
