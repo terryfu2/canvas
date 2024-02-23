@@ -22,9 +22,9 @@ function App() {
     console.log(pixels);
     
     return (
-        <div className="App">
+        <div className="App" overflow ='auto' >
 
-            <Canvas width={window.innerWidth} height={window.innerHeight} pixels={pixels}></Canvas>
+            <Canvas width={1980} height={1020} pixels={pixels}></Canvas>
             
         </div>
     ); 

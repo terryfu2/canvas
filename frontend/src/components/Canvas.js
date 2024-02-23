@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import PixelPopUp from './common/PixelPopUp';
 import Footer from './footer/Footer';
+import { MapInteractionCSS } from 'react-map-interaction';
+
 
 const Canvas = ({ width, height, pixels }) => {
     const canvasRef = useRef(null);
@@ -68,9 +70,14 @@ const Canvas = ({ width, height, pixels }) => {
     
     return (
         <div>
+       
+       
             <canvas ref={canvasRef} width={width} height={height} style={{ width: '100%', height: '100%', cursor: 'pointer' }} onClick={handleClickPixel} onMouseMove={handleMouseMove}/>
             {dialogCoordinates && <PixelPopUp x={dialogCoordinates.x} y={dialogCoordinates.y} color = {dialogCoordinates.color} onClose={handleCloseDialog} onConfirm={handleConfirm}/>}
-            <Footer x={hoveredPixel.x} y={hoveredPixel.y}></Footer>
+            
+        
+        
+        <Footer x={hoveredPixel.x} y={hoveredPixel.y}></Footer>
         </div>
     );
 };
