@@ -29,7 +29,7 @@ const footerStyle = {
     left: 0,
     width: '100%',
     height: '5%', 
-    background: '#F5EDF0',
+    background: '#F4EBD0',
     color: '#886F68',
     textAlign: 'center',
     padding: '10px'

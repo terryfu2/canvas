@@ -5,7 +5,6 @@ const PixelPopUp = ({ x, y, color,onClose ,onConfirm}) => {
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [selectedColor, setSelectedColor] = useState(color);
 
-
     const ColorBoxStyle = (color) => ({
         backgroundColor: color, 
         width: '30px', 
@@ -29,7 +28,7 @@ const PixelPopUp = ({ x, y, color,onClose ,onConfirm}) => {
     });
 
     const handleColorBoxClick = () => {
-        setShowColorPicker(!showColorPicker); // Toggle the visibility of the color picker
+        setShowColorPicker(!showColorPicker); 
     };
     const handleColorChange = (newColor) => {
         setSelectedColor(newColor.hex);
@@ -37,7 +36,7 @@ const PixelPopUp = ({ x, y, color,onClose ,onConfirm}) => {
 
     const handleConfirm = () => {
         onConfirm(selectedColor);
-        setShowColorPicker(false); // Hide the color picker after confirming the selection
+        setShowColorPicker(false); 
     };
 
 
