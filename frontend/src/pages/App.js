@@ -2,7 +2,6 @@ import '../styles/App.scss';
 
 import Canvas from '../components/Canvas';
 import { Pixel } from '../objects/Pixel';
-import { Title } from '../components/common/Title';
 
 function App() {
     
@@ -16,8 +15,6 @@ function App() {
     for(var i = 0;i<1000;i++){
         for(var j = 0;j<1000;j++){
 
-            
-
             pixels.push(new Pixel(i*10,j*10,'white'));
         }
     }
@@ -26,8 +23,9 @@ function App() {
     
     return (
         <div className="App">
-            <Title></Title>
+
             <Canvas width={window.innerWidth} height={window.innerHeight} pixels={pixels}></Canvas>
+            
         </div>
     ); 
 }
