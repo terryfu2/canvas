@@ -13,6 +13,18 @@ const Canvas = ({ width, height, pixels }) => {
         drawPixels();
     }, [pixels]);
 
+    const drawPixels = () => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+    
+        ctx.clearRect(0, 0, width, height);
+    
+        pixels.forEach(({ x, y, color }) => {
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, 10, 10);
+        });
+    };
+
     const handleClickPixel = (event) => {
         const canvas = canvasRef.current;
         const rect = canvas.getBoundingClientRect();
@@ -35,18 +47,6 @@ const Canvas = ({ width, height, pixels }) => {
 
         const pixel = pixels.find(pixel => x >= pixel.x && x < pixel.x + 10 && y >= pixel.y && y < pixel.y + 10);
         setHoveredPixel(pixel);
-    };
-
-    const drawPixels = () => {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-    
-        ctx.clearRect(0, 0, width, height);
-    
-        pixels.forEach(({ x, y, color }) => {
-            ctx.fillStyle = color;
-            ctx.fillRect(x, y, 10, 10);
-        });
     };
 
     const handleCloseDialog = () => {

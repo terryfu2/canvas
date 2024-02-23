@@ -57,7 +57,9 @@ const PixelPopUp = ({ x, y, color,onClose ,onConfirm}) => {
             {showColorPicker && <SketchPicker color={selectedColor} onChange={handleColorChange} disableAlpha = {true}/>}
             <div>
                 <button onClick={onClose}>Close</button>
+                <button onClick={handleConfirm} style={{ marginLeft: '10px' }}>Remove</button>
                 <button onClick={handleConfirm} style={{ marginLeft: '10px' }}>Confirm</button>
+
             </div>
         </div>
     );

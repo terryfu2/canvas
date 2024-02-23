@@ -17,7 +17,7 @@ remove 'replacedstuff' dir when sure not needed
 ## Backend
 ```
 Download docker https://www.docker.com/products/docker-desktop/ (windows)
-# Start
+# Create Container
 docker compose up -d
 # Stop
 docker compose down
