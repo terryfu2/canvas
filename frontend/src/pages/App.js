@@ -5,7 +5,7 @@ import { Pixel } from '../objects/Pixel';
 import React, {useCallback} from 'react';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
 
-const WS_URL = 'ws://127.0.0.1:8000/ws';
+const WS_URL = '/ws_api/ws';
 
 function App() {
     const { sendMessage, lastMessage, readyState } = useWebSocket(WS_URL);
@@ -20,8 +20,6 @@ function App() {
     }
     
     const sendPixelData = useCallback((x,y,color) => sendMessage(`{"x":${x/10}, "y":${y/10}, "colour":${color}}`), []);
-
-    // console.log(pixels);
     
     return (
         <div className="App" >

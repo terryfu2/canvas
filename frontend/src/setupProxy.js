@@ -4,8 +4,16 @@ module.exports = function(app) {
     app.use(
         "/api",
         createProxyMiddleware({
-        target: "http://backend:8000",
+        target: `http://${process.env.REACT_APP_BACKEND_HOST}:${process.env.REACT_APP_BACKEND_PORT}`,
         pathRewrite: { "^/api": "" }
         })
     );
+    app.use(
+      "/api",
+      createProxyMiddleware({
+      target: `ws://${process.env.REACT_APP_BACKEND_HOST}:${process.env.REACT_APP_BACKEND_PORT}`,
+      pathRewrite: { "^/ws_api": "" }
+      })
+  );
+
 };

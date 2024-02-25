@@ -4,6 +4,9 @@ services:
     build:
       context: frontend
       target: development
+    environment:
+      - REACT_APP_BACKEND_HOST=backend
+      - REACT_APP_BACKEND_PORT=8000
     networks:
       - client-side
     ports:

@@ -6,9 +6,7 @@ use actix_cors::Cors;
 
 mod postgres;
 mod pixel;
-// mod server;
 mod handler;
-// use self::server::CanvasWebSocket;
 
 #[get("/canvas")]
 async fn get_pixels(pool: web::Data<Pool>) -> HttpResponse {
@@ -29,12 +27,6 @@ async fn get_pixels(pool: web::Data<Pool>) -> HttpResponse {
 }
 
 // Entry point for our websocket route
-// async fn canvas_route(
-//     req: HttpRequest, stream: web::Payload, pool: web::Data<Pool>) -> Result<HttpResponse, Error> {
-//         ws::start(CanvasWebSocket::new(pool), &req, stream)
-//     }
-
-    // Entry point for our websocket route
 async fn canvas_route(
     req: HttpRequest, stream: web::Payload, pool: web::Data<Pool>) -> Result<HttpResponse, Error> {
         let (res, session, msg_stream) = actix_ws::handle(&req, stream)?;

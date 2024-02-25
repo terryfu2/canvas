@@ -13,7 +13,7 @@ const Canvas = ({onPixelChange, width, height, pixels }) => {
 
     //only update canvas is there is a changes to array
     useEffect(() => {
-        fetch("http://127.0.0.1:8000/canvas")
+        fetch("/api/canvas")
         .then((res) => res.json())
             .then((res) => {
                 for (let pixel of res) {
