@@ -7,7 +7,8 @@ poc of frontend with pixel grid, ability to add and remove color on pixels
 
 ### To-dos
 ```
-remove 'replacedstuff' dir when sure not needed
+pixel select popup css positoning scuffed when clicked neaar edge
+client side lock window when pixel changed
 ```
 ## Backend
 ```
