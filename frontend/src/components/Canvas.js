@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react';
+import Color from "colorjs.io";
 import PixelPopUp from './common/PixelPopUp';
 import Footer from './footer/Footer';
 import { MapInteractionCSS } from 'react-map-interaction';
+import { Pixel } from '../objects/Pixel';
 
-
-const Canvas = ({ width, height, pixels }) => {
+const Canvas = ({onPixelChange, width, height, pixels }) => {
     const canvasRef = useRef(null);
     const [dialogCoordinates, setDialogCoordinates] = useState(null);
     const [hoveredPixel, setHoveredPixel] = useState({ x: 0, y: 0 });    
@@ -12,7 +13,21 @@ const Canvas = ({ width, height, pixels }) => {
 
     //only update canvas is there is a changes to array
     useEffect(() => {
+        fetch("http://127.0.0.1:8000/canvas")
+        .then((res) => res.json())
+            .then((res) => {
+                for (let pixel of res) {
+                    console.log(pixel)
+                    pixels.map(el => el.x == pixel.x*10 && el.y == pixel.y*10 ? el.color = `#${pixel.colour.toString(16)}` : el);
+                    console.log(pixels.find(el => el.x == pixel.x*10 && el.y == pixel.y*10))
+                }
+                drawPixels();
+            })
+            .catch(console.error);
+        
         drawPixels();
+
+        
     }, [pixels]);
 
     const drawPixels = () => {
@@ -66,7 +81,10 @@ const Canvas = ({ width, height, pixels }) => {
 
         clickedPixel.setColor(color); 
         ctx.fillStyle = color; // Set color
-        ctx.fillRect(clickedPixel.x, clickedPixel.y, 10, 10); 
+        let colorNum = Number(`0x${(new Color(color).toString({format: "hex"})).substring(1)}`); // there must be a better way
+        console.log(colorNum);
+        ctx.fillRect(clickedPixel.x, clickedPixel.y, 10, 10);
+        onPixelChange(clickedPixel.x, clickedPixel.y, colorNum);
 
         setDialogCoordinates(null);
         setClickedPixel(null);
@@ -82,7 +100,7 @@ const Canvas = ({ width, height, pixels }) => {
             
             </MapInteractionCSS>
         
-            <Footer x={hoveredPixel.x} y={hoveredPixel.y}></Footer>
+            <Footer x={hoveredPixel ? hoveredPixel.x : 0} y={hoveredPixel ? hoveredPixel.y : 0}></Footer>
         </div>
     );
 };

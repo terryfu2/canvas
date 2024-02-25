@@ -1,6 +1,6 @@
 CREATE TABLE canvas (
-  x smallint,
-  y smallint,
-  colour smallint NOT NULL,
+  x integer,
+  y integer,
+  colour integer NOT NULL,
   PRIMARY KEY(x, y)
 );
