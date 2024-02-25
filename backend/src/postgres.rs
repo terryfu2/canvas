@@ -21,6 +21,9 @@ fn create_config() -> Config {
     if let Ok(password) = std::env::var("PG_PASSWORD") {
         cfg.password = Some(password);
     }
+    if let Ok(port) = std::env::var("PG_PORT") {
+        cfg.port = Some(port.parse::<u16>().unwrap());
+    }
     cfg
 }
 

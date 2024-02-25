@@ -25,6 +25,7 @@ services:
       - PG_HOST=db
       - PG_USER=postgres
       - PG_PASSWORD=mysecretpassword
+      - PG_PORT=5432
     networks:
       - client-side
       - server-side
