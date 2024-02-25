@@ -5,7 +5,7 @@ import { Pixel } from '../objects/Pixel';
 import React, {useCallback} from 'react';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
 
-const WS_URL = '/ws_api/ws';
+const WS_URL = `ws://${process.env.REACT_APP_BACKEND_HOST}:${process.env.REACT_APP_BACKEND_PORT}/ws`;
 
 function App() {
     const { sendMessage, lastMessage, readyState } = useWebSocket(WS_URL);

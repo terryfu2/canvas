@@ -3,7 +3,6 @@ import Color from "colorjs.io";
 import PixelPopUp from './common/PixelPopUp';
 import Footer from './footer/Footer';
 import { MapInteractionCSS } from 'react-map-interaction';
-import { Pixel } from '../objects/Pixel';
 
 const Canvas = ({onPixelChange, width, height, pixels }) => {
     const canvasRef = useRef(null);

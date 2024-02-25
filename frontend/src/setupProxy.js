@@ -9,7 +9,7 @@ module.exports = function(app) {
         })
     );
     app.use(
-      "/api",
+      "/ws_api",
       createProxyMiddleware({
       target: `ws://${process.env.REACT_APP_BACKEND_HOST}:${process.env.REACT_APP_BACKEND_PORT}`,
       pathRewrite: { "^/ws_api": "" }
