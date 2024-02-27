@@ -1,6 +1,11 @@
 ## Setup
-```
-cd frontend
+
+### Install dependencies
+``` bash
 npm install
+```
+
+### Run application
+```bash
 npm start
 ```
