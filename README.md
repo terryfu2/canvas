@@ -10,6 +10,13 @@ poc of frontend with pixel grid, ability to add and remove color on pixels
 pixel select popup css positoning scuffed when clicked neaar edge
 client side lock window when pixel changed
 ```
+
+## Proxy
+Run before running npm start on frontend
+```
+cd proxy/src
+node proxy.js
+```
 ## Backend
 ```
 Download docker https://www.docker.com/products/docker-desktop/ (windows)
