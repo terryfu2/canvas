@@ -1,32 +1,15 @@
-# canvas
+# Canvas
 
-poc of frontend with pixel grid, ability to add and remove color on pixels
+A distributed recreation of [r/place](https://en.wikipedia.org/wiki/R/place)
 
+## Setup
 
+### Frontend
+Follow the instructions in [`the frontend readme`](frontend/README)
 
+### Proxy
+*Run before running npm start on frontend*
+Follow the instructions in [`the proxy readme`](proxy/README)
 
-### To-dos
-```
-pixel select popup css positoning scuffed when clicked neaar edge
-client side lock window when pixel changed
-```
-
-## Proxy
-Run before running npm start on frontend
-```
-cd proxy/src
-node proxy.js
-```
-## Backend
-```
-Download docker https://www.docker.com/products/docker-desktop/ (windows)
-# Create Container
-docker compose up -d
-# Stop
-docker compose down
-When launching for the first time you will have to wait for the backend to compile then refresh the frontend. It may take a while (like 15 min on my machine).
-```
-## Run without docker
-```
-Follow README.md in backend then frontend
-```
+### Backend
+Follow the instructions in [`the backend readme`](backend/README)

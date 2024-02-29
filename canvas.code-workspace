@@ -1,0 +1,52 @@
+{
+  "folders": [
+    {
+      "path": "frontend"
+    },
+    {
+      "path": "backend"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true
+    }
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "frontend",
+        "type": "shell",
+        "command": "npm install && npm start",
+        "options": {
+          "cwd": "${workspaceFolder:frontend}"
+        },
+        "presentation": {
+          "reveal": "always",
+          "group": "cpsc559",
+          "panel": "dedicated"
+        },
+        "runOptions": {
+          "runOn": "folderOpen"
+        }
+      },
+      {
+        "label": "backend",
+        "type": "shell",
+        "command": "cargo run",
+        "options": {
+          "cwd": "${workspaceFolder:backend}"
+        },
+        "presentation": {
+          "reveal": "always",
+          "group": "cpsc559",
+          "panel": "dedicated"
+        },
+        "runOptions": {
+          "runOn": "folderOpen"
+        }
+      }
+    ]
+  }
+}
