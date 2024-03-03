@@ -16,9 +16,9 @@ const Canvas = ({onPixelChange, width, height, pixels }) => {
         .then((res) => res.json())
             .then((res) => {
                 for (let pixel of res) {
-                    console.log(pixel)
+                    //console.log(pixel)
                     pixels.map(el => el.x == pixel.x*10 && el.y == pixel.y*10 ? el.color = `#${pixel.colour.toString(16)}` : el);
-                    console.log(pixels.find(el => el.x == pixel.x*10 && el.y == pixel.y*10))
+                    //console.log(pixels.find(el => el.x == pixel.x*10 && el.y == pixel.y*10))
                 }
                 drawPixels();
             })
@@ -34,9 +34,16 @@ const Canvas = ({onPixelChange, width, height, pixels }) => {
         const ctx = canvas.getContext('2d');
     
         ctx.clearRect(0, 0, width, height);
-    
+        
         pixels.forEach(({ x, y, color }) => {
             ctx.fillStyle = color;
+            
+
+            if (color == '#0') {
+                //console.log(color);
+                ctx.fillStyle = 'black'; // Set color
+            }
+
             ctx.fillRect(x, y, 10, 10);
         });
     };
@@ -81,7 +88,7 @@ const Canvas = ({onPixelChange, width, height, pixels }) => {
         clickedPixel.setColor(color); 
         ctx.fillStyle = color; // Set color
         let colorNum = Number(`0x${(new Color(color).toString({format: "hex"})).substring(1)}`); // there must be a better way
-        console.log(colorNum);
+        //console.log(colorNum);
         ctx.fillRect(clickedPixel.x, clickedPixel.y, 10, 10);
         onPixelChange(clickedPixel.x, clickedPixel.y, colorNum);
 
