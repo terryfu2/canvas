@@ -5,6 +5,9 @@
     },
     {
       "path": "backend"
+    },
+    {
+      "path": "proxy"
     }
   ],
   "settings": {
@@ -37,6 +40,22 @@
         "command": "cargo run",
         "options": {
           "cwd": "${workspaceFolder:backend}"
+        },
+        "presentation": {
+          "reveal": "always",
+          "group": "cpsc559",
+          "panel": "dedicated"
+        },
+        "runOptions": {
+          "runOn": "folderOpen"
+        }
+      },
+      {
+        "label": "proxy",
+        "type": "shell",
+        "command": "cd src && npm install && node proxy.js",
+        "options": {
+          "cwd": "${workspaceFolder:proxy}"
         },
         "presentation": {
           "reveal": "always",

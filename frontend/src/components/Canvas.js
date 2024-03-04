@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import Color from "colorjs.io";
 import PixelPopUp from './common/PixelPopUp';
@@ -6,9 +7,10 @@ import { MapInteractionCSS } from 'react-map-interaction';
 
 const Canvas = ({onPixelChange, width, height, pixels }) => {
     const canvasRef = useRef(null);
+
     const [dialogCoordinates, setDialogCoordinates] = useState(null);
     const [hoveredPixel, setHoveredPixel] = useState({ x: 0, y: 0 });    
-    const [clickedPixel, setClickedPixel] = useState(null);
+    const [clickedPixel, setClickedPixel] = useState(null);    
 
     //only update canvas is there is a changes to array
     useEffect(() => {
@@ -50,6 +52,8 @@ const Canvas = ({onPixelChange, width, height, pixels }) => {
 
     const handleClickPixel = (event) => {
         const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
@@ -59,8 +63,11 @@ const Canvas = ({onPixelChange, width, height, pixels }) => {
         const clickedPixel = pixels.find(pixel => x >= pixel.x && x < pixel.x + 10 && y >= pixel.y && y < pixel.y + 10);
         if (clickedPixel) {
             setDialogCoordinates({ x: clickedPixel.x, y: clickedPixel.y, color: clickedPixel.color });
+            
         }
+
         setClickedPixel(clickedPixel);
+
     };
 
     const handleMouseMove = (event) => {
@@ -96,15 +103,16 @@ const Canvas = ({onPixelChange, width, height, pixels }) => {
         setClickedPixel(null);
     }
 
-    
     return (
         <div>
-            <MapInteractionCSS>
-
-            <canvas ref={canvasRef} width={width} height={height} style={{ width: '100%', height: '100%', cursor: 'pointer' }} onClick={handleClickPixel} onMouseMove={handleMouseMove}/>
-            {dialogCoordinates && <PixelPopUp x={dialogCoordinates.x} y={dialogCoordinates.y} color = {dialogCoordinates.color} onClose={handleCloseDialog} onConfirm={handleConfirm}/>}
+            <MapInteractionCSS
+            >
+                <canvas ref={canvasRef} width={width} height={height} style={{ width: '100%', height: '100%', cursor: 'pointer' }} onClick={handleClickPixel} onMouseMove={handleMouseMove}/>
             
             </MapInteractionCSS>
+
+            {dialogCoordinates && <PixelPopUp x={dialogCoordinates.x} y={dialogCoordinates.y} color = {dialogCoordinates.color} onClose={handleCloseDialog} onConfirm={handleConfirm}/>}
+
         
             <Footer x={hoveredPixel ? hoveredPixel.x : 0} y={hoveredPixel ? hoveredPixel.y : 0}></Footer>
         </div>

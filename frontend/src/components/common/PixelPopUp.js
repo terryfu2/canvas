@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CirclePicker,CompactPicker,SketchPicker } from 'react-color';
+import {SketchPicker } from 'react-color';
 
 const PixelPopUp = ({ x, y, color,onClose ,onConfirm}) => {
     const [showColorPicker, setShowColorPicker] = useState(false);
@@ -13,19 +13,21 @@ const PixelPopUp = ({ x, y, color,onClose ,onConfirm}) => {
         marginLeft: '10px' 
     });
 
-    const PopUpStyle = (topPosition,x) =>({
+    const PopUpStyle = () =>({
         
-        position: 'fixed', 
-        top: topPosition, 
-        left: `${x}px`, 
-        transform: 'translate(-50%, -50%)', 
+        position: 'absolute',
+        top: '25%', 
+        left: '50%',
+        transform: 'translate(-25%, -50%)', 
         backgroundColor: 'white', 
         padding: '10px', 
         border: '1px solid black', 
         color: 'black', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center'
+        zIndex: 9999,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexDirection: 'column'
     });
 
     const handleColorBoxClick = () => {
@@ -41,13 +43,8 @@ const PixelPopUp = ({ x, y, color,onClose ,onConfirm}) => {
     };
 
 
-    // Check if the dialog fits within the screen height
-    const fitsInScreen = (y + 210) <= window.innerHeight;
-    // Calculate the top position based on whether it fits or not
-    const topPosition = fitsInScreen ? `${y + 90}px` : `${y - 80}px`;
-
     return (
-        <div style={PopUpStyle(topPosition,x)}>
+        <div style={PopUpStyle()}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <p>X   &nbsp; {x / 10}</p>

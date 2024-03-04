@@ -1,6 +1,12 @@
-# Canvas
+<h1 align="center">
+  Canvas
+</h1>
 
+<p align="center">
 A distributed recreation of [r/place](https://en.wikipedia.org/wiki/R/place)
+</p>
+
+![plot](./imgs/demo.PNG)
 
 ## Setup
 
