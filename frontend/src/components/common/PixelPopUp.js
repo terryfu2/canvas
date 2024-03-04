@@ -16,9 +16,9 @@ const PixelPopUp = ({ x, y, color,onClose ,onConfirm}) => {
     const PopUpStyle = () =>({
         
         position: 'absolute',
-        top: '50%', 
+        top: '25%', 
         left: '50%',
-        transform: 'translate(-50%, -50%)', 
+        transform: 'translate(-25%, -50%)', 
         backgroundColor: 'white', 
         padding: '10px', 
         border: '1px solid black', 

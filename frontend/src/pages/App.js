@@ -24,7 +24,7 @@ function App() {
     return (
         <div className="App" >
 
-            <Canvas onPixelChange={sendPixelData} width={2000} height={2000} pixels={pixels}></Canvas>
+            <Canvas onPixelChange={sendPixelData} width={2010} height={2010} pixels={pixels}></Canvas>
         </div>
     ); 
 }
