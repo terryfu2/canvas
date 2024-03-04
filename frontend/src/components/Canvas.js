@@ -10,9 +10,7 @@ const Canvas = ({onPixelChange, width, height, pixels }) => {
 
     const [dialogCoordinates, setDialogCoordinates] = useState(null);
     const [hoveredPixel, setHoveredPixel] = useState({ x: 0, y: 0 });    
-    const [clickedPixel, setClickedPixel] = useState(null);
-
-    
+    const [clickedPixel, setClickedPixel] = useState(null);    
 
     //only update canvas is there is a changes to array
     useEffect(() => {
@@ -54,6 +52,8 @@ const Canvas = ({onPixelChange, width, height, pixels }) => {
 
     const handleClickPixel = (event) => {
         const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
@@ -67,6 +67,7 @@ const Canvas = ({onPixelChange, width, height, pixels }) => {
         }
 
         setClickedPixel(clickedPixel);
+
     };
 
     const handleMouseMove = (event) => {
@@ -102,13 +103,10 @@ const Canvas = ({onPixelChange, width, height, pixels }) => {
         setClickedPixel(null);
     }
 
-    
     return (
         <div>
             <MapInteractionCSS
-                
             >
-
                 <canvas ref={canvasRef} width={width} height={height} style={{ width: '100%', height: '100%', cursor: 'pointer' }} onClick={handleClickPixel} onMouseMove={handleMouseMove}/>
             
             </MapInteractionCSS>

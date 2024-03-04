@@ -12,8 +12,8 @@ function App() {
     
     const pixels = [];
     
-    for(var i = 0;i<1000;i++){
-        for(var j = 0;j<1000;j++){
+    for(var i = 0;i<210;i++){
+        for(var j = 0;j<210;j++){
 
             pixels.push(new Pixel(i*10,j*10,'white'));
         }
@@ -24,7 +24,7 @@ function App() {
     return (
         <div className="App" >
 
-            <Canvas onPixelChange={sendPixelData} width={1980} height={1020} pixels={pixels}></Canvas>
+            <Canvas onPixelChange={sendPixelData} width={2000} height={2000} pixels={pixels}></Canvas>
         </div>
     ); 
 }
