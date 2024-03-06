@@ -42,5 +42,7 @@ That might fix it, but im too lazy to try
 # Start application
 ```bash
 cargo run
+(on another bash)
+cargo run --config ./.cargo/config1.toml
 ```
 
