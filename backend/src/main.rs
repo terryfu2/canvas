@@ -3,10 +3,24 @@ use actix_web::{
 };
 use deadpool_postgres::Pool;
 use actix_cors::Cors;
-
+use tokio::{
+    task::spawn,
+    try_join,
+    sync::mpsc
+};
 mod postgres;
 mod pixel;
 mod handler;
+
+mod replica_manager;
+
+pub use self::replica_manager::{ReplicaHandle, ReplicaManager};
+
+/// Connection ID.
+pub type ConnId = usize;
+
+/// Message sent to a replica.
+pub type Msg = String;
 
 #[get("/canvas")]
 async fn get_pixels(pool: web::Data<Pool>) -> HttpResponse {
@@ -28,11 +42,11 @@ async fn get_pixels(pool: web::Data<Pool>) -> HttpResponse {
 
 // Entry point for our websocket route
 async fn canvas_route(
-    req: HttpRequest, stream: web::Payload, pool: web::Data<Pool>) -> Result<HttpResponse, Error> {
+    req: HttpRequest, stream: web::Payload, pool: web::Data<Pool>, replica_handle: web::Data<ReplicaHandle>) -> Result<HttpResponse, Error> {
         let (res, session, msg_stream) = actix_ws::handle(&req, stream)?;
 
         // spawn websocket handler (and don't await it) so that the response is returned immediately
-        rt::spawn(handler::canvas_ws(session, msg_stream, pool));
+        rt::spawn(handler::canvas_ws((**replica_handle).clone(), session, msg_stream, pool));
 
         Ok(res)
     }
@@ -60,18 +74,32 @@ fn address() -> String {
     std::env::var("ADDRESS").unwrap_or_else(|_| "127.0.0.1:8000".into())
 }
 
-#[actix_web::main]
+fn is_primary() -> bool {
+    std::env::var("PRIMARY").unwrap_or_else(|_| "false".into()) == "true"
+}
+
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     let pg_pool = postgres::create_pool();
     postgres::migrate_up(&pg_pool).await;
 
+    let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
+
+    let is_primary = is_primary();
+    let (replica_handler, tx) = ReplicaManager::new(is_primary, pg_pool.clone(), cmd_tx);
+
+    
+    let chat_server = spawn(replica_handler.run(cmd_rx));
+
     let address = address();
-    HttpServer::new(move || {
+    log::info!("address {}", address);
+    let http_server = HttpServer::new(move || {
         App::new()
             .wrap(Cors::permissive())
             .app_data(web::Data::new(pg_pool.clone()))
+            .app_data(web::Data::new(tx.clone()))
             .service(get_pixels)
             .service(set_pixel)
             // websocket route
@@ -80,6 +108,9 @@ async fn main() -> std::io::Result<()> {
     })
     .workers(2)
     .bind(&address)?
-    .run()
-    .await
+    .run();
+
+    try_join!(http_server, async move { chat_server.await.unwrap() })?;
+
+    Ok(())
 }

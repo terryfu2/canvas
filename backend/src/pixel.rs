@@ -27,11 +27,32 @@ impl Pixel {
         Ok(rows.into_iter().map(Pixel::from).collect())
     }
 
-    pub async fn insert(client: deadpool::managed::Object<Manager>, data: String) -> Result<u64, Error> {
-        println!("Here: {data:?}");
-        let pixel: Pixel = serde_json::from_str(&data).unwrap();
+    pub async fn insert_pixel(client: &deadpool::managed::Object<Manager>, pixel: &Pixel) -> Result<u64, Error> {
         let stmt = client.prepare("INSERT INTO canvas (x,y,colour) VALUES ($1,$2,$3) ON CONFLICT (x,y) DO UPDATE SET x = $1, y = $2, colour = $3").await.unwrap();
-        let result = client.execute(&stmt, &[&pixel.x, &pixel.y, &pixel.colour]).await.unwrap();
+        client.execute(&stmt, &[&pixel.x, &pixel.y, &pixel.colour]).await
+    }
+
+    pub async fn insert(client: deadpool::managed::Object<Manager>, data: String) -> Result<u64, Error> {
+        match serde_json::from_str::<Pixel>(&data) {
+            Ok(pixel) => {
+                Pixel::insert_pixel(&client, &pixel).await
+            },
+            Err(_) => {
+                log::error!("Error converting pixel {}", data);
+                Ok(0)
+            }
+        }
+    }
+
+    pub async fn update_all(client: deadpool::managed::Object<Manager>, data: String) -> Result<u64, Error> {
+        // Clear previous data
+        let stmt = client.prepare("TRUNCATE TABLE canvas").await.unwrap();
+        let mut result = client.execute(&stmt, &[]).await.unwrap();
+
+        let pixels: Vec<Pixel> = serde_json::from_str(&data).unwrap();
+        for pixel in pixels.iter() {
+            result += Pixel::insert_pixel(&client, pixel).await.unwrap();
+        }
 
         Ok(result)
     }
