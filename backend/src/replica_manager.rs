@@ -21,7 +21,7 @@ pub enum Command {
     },
 }
 
-const REPLICA_BUFFER_SIZE: usize = 10240;
+const REPLICA_BUFFER_SIZE: usize = 102400;
 
 const ADDR: Ipv4Addr = Ipv4Addr::LOCALHOST;
 
