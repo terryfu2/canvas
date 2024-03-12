@@ -42,16 +42,20 @@ fn proc_id() -> u16 {
 
 /// Manages the messages to and from replicas.
 ///
-/// run() is really poorly implemented rn.
 ///
 /// Call and spawn [`run`](Self::run) to start processing commands.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ReplicaManager {
 
     is_primary: bool,
 
-    // Postgres db_connection
+    /// Postgres db_connection
     db: Pool,
+    
+    successor_stream: Option<TcpStream>,
+
+    // We can add this back later
+    // predecessor_stream: Option<TcpStream>
 }
 
 impl ReplicaManager {
@@ -59,14 +63,16 @@ impl ReplicaManager {
         (
             Self {
                 is_primary,
-                db
+                db,
+                successor_stream: None,
+                // predecessor_stream: None
             },
             ReplicaHandle { cmd_tx },
         )
     }
 
     /// Parse msg and send to appropriate manager
-    pub async fn handle_replica_msg(self, msg: String) {
+    pub async fn handle_replica_msg(&mut self, msg: String) {
         if self.is_primary {
             // We already updated our database, do nothing
             return;
@@ -88,7 +94,7 @@ impl ReplicaManager {
                 }
                 "/election" => match cmd_args.next() {
                     Some(pixels) => {
-                        self.handle_all_pixels_msg(pixels.to_string()).await;
+                        self.handle_election_msg(pixels.to_string()).await;
                     }
                     None => {
                         log::info!("No pixels provided to all pixels update");
@@ -106,31 +112,32 @@ impl ReplicaManager {
     }
 
     /// Normal pixel update, add it to db
-    pub async fn handle_pixel_msg(self, msg: String) {
+    pub async fn handle_pixel_msg(&self, msg: String) {
         log::info!("Pixel update received {}", msg);
         let db = self.db.get().await.unwrap();
         Pixel::insert(db, msg).await.unwrap();
     }
 
     /// Clear and set the entire database to list of pixels provided
-    pub async fn handle_all_pixels_msg(self, msg: String) {
+    pub async fn handle_all_pixels_msg(&self, msg: String) {
         log::info!("All pixels update received {}", msg);
         let db = self.db.get().await.unwrap();
         Pixel::update_all(db, msg).await.unwrap();
     }
 
     /// We can do elections here
-    pub async fn handle_election_msg(self, _msg: String) {
-        unimplemented!();
+    pub async fn handle_election_msg(&self, msg: String) {
+        
     }
 
-    pub async fn run(self, mut cmd_rx: UnboundedReceiver<Command>) -> io::Result<()> {
-
+    /// Connect the successor and predecessor.
+    /// Probably shouldn't return predecessor, but it does until
+    /// I can figure out the borrowing more
+    pub async fn connect_streams(&mut self) -> io::Result<TcpStream> {
         let id = proc_id();
-        let mut successor_stream: TcpStream;
-        let predecessor_stream: TcpStream;
-
         log::info!("Proc id is {}", id);
+        let successor_stream: TcpStream;
+        let predecessor_stream: TcpStream;
 
         // We need to change this to a select async. That would be cool
         // todo change to handle more than 2 replicas
@@ -143,7 +150,6 @@ impl ReplicaManager {
 
             log::info!("if: Waiting for predecessor port: {}", predecessor_port());
             (predecessor_stream, _) = listener.accept().await?;
-            // log::info!("Connected to {}", addr.port());
 
         } else if id == 2 { // Last replica
             log::info!("Listening on  {}", port());
@@ -166,7 +172,39 @@ impl ReplicaManager {
             log::info!("Waiting for successor port: {}", successor_port());
             (successor_stream, _) = listener_successor.accept().await?;
         }
+        self.successor_stream = Some(successor_stream);
+
         log::info!("Connected!");
+        return Ok(predecessor_stream)
+    }
+
+    /// Send a message to the successor
+    pub async fn send_successor(&mut self, msg: &[u8]) -> io::Result<()> {
+        match self.successor_stream.as_mut() {
+            Some(successor_stream) => successor_stream.write_all(msg).await,
+            None => {
+                log::error!("Attempted to successor write with no connection");
+                // Maybe could recover and not panic here
+                panic!("Attempted to successor write with no connection");
+            }
+        }
+    }
+
+    /// Send a message to the predecessor
+    // pub async fn send_predecessor(&mut self, msg: &[u8]) -> io::Result<()> {
+    //     match self.predecessor_stream.as_mut() {
+    //         Some(predecessor_stream) => predecessor_stream.write_all(msg).await,
+    //         None => {
+    //             log::error!("Attempted to predecessor write with no connection");
+    //             // Maybe could recover and not panic here
+    //             panic!("Attempted to predecessor write with no connection");
+    //         }
+    //     }
+    // }
+
+    pub async fn run(mut self, mut cmd_rx: UnboundedReceiver<Command>) -> io::Result<()> {
+
+        let predecessor_stream = self.connect_streams().await?;
 
         let db = self.db.get().await.unwrap();
 
@@ -177,7 +215,7 @@ impl ReplicaManager {
             pixels_str = format!("/all_pixels {}", pixels_str);
             let pixels_bytes = pixels_str.as_bytes();
             log::info!("Sending {} bytes", pixels_bytes.len());
-            successor_stream.write_all(pixels_bytes).await?;
+            self.send_successor(pixels_bytes).await?;
         } else {
             let mut buf = vec![0; REPLICA_BUFFER_SIZE];
             predecessor_stream.readable().await?;
@@ -189,11 +227,10 @@ impl ReplicaManager {
                         Ok(v) => v,
                         Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
                     };
-                    self.clone().handle_replica_msg(msg.to_string()).await;
+                    self.handle_replica_msg(msg.to_string()).await;
                     
                     // Send copy of primary data to next replica
-                    successor_stream.write_all(&buf).await?;
-                    // successor_stream.write_all(format!("/all_pixels {pixels_str}").as_bytes()).await?;
+                    self.send_successor(&buf).await?;
                 }
                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                     // This gets called after every update idk why
@@ -220,7 +257,7 @@ impl ReplicaManager {
                     match cmd {
                         Command::Message { msg, res_tx } => {
                             log::info!("Msg received {}", msg);
-                            successor_stream.write_all(msg.as_bytes()).await?;
+                            self.send_successor(msg.as_bytes()).await?;
                             let _ = res_tx.send(());
                         }
                     }
@@ -243,16 +280,12 @@ impl ReplicaManager {
                                         Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
                                     };
                                     log::info!("Received msg from socket {}", predecessor_msg);
-                                    // This is kinda insanely dumb and comes from my misunderstanding of rust
-                                    // There are a million better ways to do this and this is gonna be a big problem
-                                    // Once we start implementing elections.
-                                    // Im removing all state from an object so whats the point of the object?
-                                    self.clone().handle_replica_msg(predecessor_msg.to_string()).await;
+                                    self.handle_replica_msg(predecessor_msg.to_string()).await;
 
                                     // Send update to next replica
                                     if !self.is_primary {
                                         log::info!("replica sent to successor {}", predecessor_msg);
-                                        successor_stream.write_all(predecessor_msg.as_bytes()).await?;
+                                        self.send_successor(predecessor_msg.as_bytes()).await?;
                                     }
                                 }
                                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {

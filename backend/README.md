@@ -25,7 +25,7 @@ GRANT ALL ON SCHEMA public TO postgres;
 
 For 3
 initdb -D c:\Data\PostgresInstance3 -W -A md5
-Uncomment and change port in c:\Data\PostgresInstance2\postgresql.conf to 5434
+Uncomment and change port in c:\Data\PostgresInstance3\postgresql.conf to 5434
 pg_ctl start -D c:\Data\PostgresInstance3
 pg_ctl register -N postgres3 -D c:\Data\PostgresInstance3
 psql  -d template1 --port=5434
@@ -45,6 +45,8 @@ That might fix it, but im too lazy to try
 cargo run
 (on another bash)
 cargo run --config ./.cargo/config1.toml
+(on another bash)
+cargo run --config ./.cargo/config2.toml
 ```
 # View data in database
 
