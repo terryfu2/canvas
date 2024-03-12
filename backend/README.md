@@ -46,4 +46,12 @@ cargo run
 (on another bash)
 cargo run --config ./.cargo/config1.toml
 ```
+# View data in database
+
+1. Launch psql terminal.
+- Primary: `cd ~` then `sudo -u postgres psql` enter your computer password then postgres password.
+- Backup: `psql  -d template1 --port=5433` enter your postgres password. Note: change port number according to port number in config toml files. There is one for each backup server.
+
+2. Connect to the database postgres `\c postgres`.
+3. View the data in canvas table `SELECT * FROM public.canvas;`.
 
