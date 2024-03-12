@@ -26,10 +26,10 @@ const REPLICA_BUFFER_SIZE: usize = 102400;
 const ADDR: Ipv4Addr = Ipv4Addr::LOCALHOST;
 
 fn predecessor_port() -> u16 {
-    std::env::var("SUCCESSOR_PORT").unwrap_or_else(|_| "8000".into()).parse::<u16>().unwrap_or_else(|_| 8000)
+    std::env::var("PREDECESSOR_PORT").unwrap_or_else(|_| "8000".into()).parse::<u16>().unwrap_or_else(|_| 8000)
 }
 fn successor_port() -> u16 {
-    std::env::var("PREDECESSOR_PORT").unwrap_or_else(|_| "8000".into()).parse::<u16>().unwrap_or_else(|_| 8000)
+    std::env::var("SUCCESSOR_PORT").unwrap_or_else(|_| "8000".into()).parse::<u16>().unwrap_or_else(|_| 8000)
 }
 fn port() -> u16 {
     std::env::var("SOCKET_PORT").unwrap_or_else(|_| "8000".into()).parse::<u16>().unwrap_or_else(|_| 8000)
@@ -133,27 +133,38 @@ impl ReplicaManager {
         log::info!("Proc id is {}", id);
 
         // We need to change this to a select async. That would be cool
-        if id % 2 != 0 {
+        // todo change to handle more than 2 replicas
+        if id == 1 {
             let listener = TcpListener::bind(SocketAddrV4::new(ADDR, port())).await?;
             log::info!("Listening on  {}", port());
 
-            log::info!("Connecting to  {}...", successor_port());
+            log::info!("if: Connecting to successor port: {}...", successor_port());
             successor_stream = TcpStream::connect(SocketAddrV4::new(ADDR, successor_port())).await?;
 
-            log::info!("Waiting for {}", predecessor_port());
+            log::info!("if: Waiting for predecessor port: {}", predecessor_port());
             (predecessor_stream, _) = listener.accept().await?;
             // log::info!("Connected to {}", addr.port());
 
+        } else if id == 2 { // Last replica
+            log::info!("Listening on  {}", port());
+
+            log::info!("if: Connecting to successor port: {}...", successor_port());
+            successor_stream = TcpStream::connect(SocketAddrV4::new(ADDR, successor_port())).await?;
+
+            log::info!("if: Connecting to predecessor port: {}...", predecessor_port());
+            predecessor_stream = TcpStream::connect(SocketAddrV4::new(ADDR, predecessor_port())).await?;
+        
         } else {
-            let listener = TcpListener::bind(SocketAddrV4::new(ADDR, port())).await?;
+            let listener_predecessor = TcpListener::bind(SocketAddrV4::new(ADDR, port())).await?;
+            let listener_successor = TcpListener::bind(SocketAddrV4::new(ADDR, successor_port())).await?;
             log::info!("Listening on  {}", port());
 
-            log::info!("Waiting for {}", predecessor_port());
-            (predecessor_stream, _) = listener.accept().await?;
+            log::info!("Waiting for predecessor port: {}", predecessor_port());
+            (predecessor_stream, _) = listener_predecessor.accept().await?;
             // log::info!("Connected to {}", addr.port());
 
-            log::info!("Connecting to  {}...", successor_port());
-            successor_stream = TcpStream::connect(SocketAddrV4::new(ADDR, successor_port())).await?;
+            log::info!("Waiting for successor port: {}", successor_port());
+            (successor_stream, _) = listener_successor.accept().await?;
         }
         log::info!("Connected!");
 
@@ -179,6 +190,9 @@ impl ReplicaManager {
                         Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
                     };
                     self.clone().handle_replica_msg(msg.to_string()).await;
+                    
+                    // Send copy of primary data to next replica
+                    successor_stream.write_all(&buf).await?;
                     // successor_stream.write_all(format!("/all_pixels {pixels_str}").as_bytes()).await?;
                 }
                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
@@ -234,6 +248,12 @@ impl ReplicaManager {
                                     // Once we start implementing elections.
                                     // Im removing all state from an object so whats the point of the object?
                                     self.clone().handle_replica_msg(predecessor_msg.to_string()).await;
+
+                                    // Send update to next replica
+                                    if !self.is_primary {
+                                        log::info!("replica sent to successor {}", predecessor_msg);
+                                        successor_stream.write_all(predecessor_msg.as_bytes()).await?;
+                                    }
                                 }
                                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                                     // This gets called after every update idk why
