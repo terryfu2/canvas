@@ -23,7 +23,7 @@ CREATE USER postgres WITH ENCRYPTED PASSWORD '<your_pass>';
 GRANT ALL PRIVILEGES ON DATABASE postgres TO postgres;
 GRANT ALL ON SCHEMA public TO postgres;
 
-For 3 (Doesn't work rn)
+For 3
 initdb -D c:\Data\PostgresInstance3 -W -A md5
 Uncomment and change port in c:\Data\PostgresInstance2\postgresql.conf to 5434
 pg_ctl start -D c:\Data\PostgresInstance3
