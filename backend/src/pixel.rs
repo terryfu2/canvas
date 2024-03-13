@@ -44,7 +44,7 @@ impl Pixel {
         }
     }
 
-    pub async fn update_all(client: deadpool::managed::Object<Manager>, data: String) -> Result<u64, Error> {
+    pub async fn update_all(client: deadpool::managed::Object<Manager>, data: &String) -> Result<u64, Error> {
         // Clear previous data
         let stmt = client.prepare("TRUNCATE TABLE canvas").await.unwrap();
         let mut result = client.execute(&stmt, &[]).await.unwrap();
