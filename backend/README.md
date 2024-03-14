@@ -34,6 +34,17 @@ CREATE USER postgres WITH ENCRYPTED PASSWORD '<your_pass>';
 GRANT ALL PRIVILEGES ON DATABASE postgres TO postgres;
 GRANT ALL ON SCHEMA public TO postgres;
 
+For 4
+initdb -D c:\Data\PostgresInstance4 -W -A md5
+Uncomment and change port in c:\Data\PostgresInstance4\postgresql.conf to 5435
+pg_ctl start -D c:\Data\PostgresInstance4
+pg_ctl register -N postgres3 -D c:\Data\PostgresInstance4
+psql  -d template1 --port=5435
+CREATE DATABASE postgres;
+CREATE USER postgres WITH ENCRYPTED PASSWORD '<your_pass>';
+GRANT ALL PRIVILEGES ON DATABASE postgres TO postgres;
+GRANT ALL ON SCHEMA public TO postgres;
+
 These database shut down on every Crtl C and needs to be restarted with
 pg_ctl start -D c:\Data\PostgresInstance<X>
 https://postgrespro.com/list/thread-id/1835410
@@ -47,6 +58,8 @@ cargo run
 cargo run --config ./.cargo/config1.toml
 (on another bash)
 cargo run --config ./.cargo/config2.toml
+(on another bash)
+cargo run --config ./.cargo/config3.toml
 ```
 # View data in database
 

@@ -233,8 +233,8 @@ impl ReplicaManager {
         let predecessor_stream: TcpStream;
 
         // We need to change this to a select async. That would be cool
-        // todo change to handle more than 2 replicas
-        if id == 1 {
+        // Nice to have if we can set how many replicas through command line
+        if id == 1 || id == 2 { 
             let listener = TcpListener::bind(SocketAddrV4::new(ADDR, port())).await?;
             log::info!("Listening on  {}", port());
 
@@ -244,7 +244,7 @@ impl ReplicaManager {
             log::info!("if: Waiting for predecessor port: {}", predecessor_port());
             (predecessor_stream, _) = listener.accept().await?;
 
-        } else if id == 2 { // Last replica
+        } else if id == 3 { // Last replica
             log::info!("Listening on  {}", port());
 
             log::info!("if: Connecting to successor port: {}...", successor_port());
