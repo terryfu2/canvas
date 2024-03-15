@@ -17,7 +17,7 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
     const ctx = canvas.getContext("2d");
 
     ctx.clearRect(0, 0, width, height);
-
+    
     pixels.forEach(({ x, y, color }) => {
       ctx.fillStyle = color;
 
@@ -29,8 +29,15 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
     });
   }, [pixels, height, width]);
 
+  function rgbToHex(r, g, b) {
+    if (r > 255 || g > 255 || b > 255)
+        throw "Invalid color component";
+    return ((r << 16) | (g << 8) | b).toString(16);
+}
+
   const handleClickPixel = (event) => {
     const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
 
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -42,14 +49,18 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
       (pixel) =>
         x >= pixel.x && x < pixel.x + 10 && y >= pixel.y && y < pixel.y + 10
     );
+
+    //get color hex from clicked pixel based on canvas
+    var p = ctx.getImageData(x, y, 1, 1).data; 
+    var hex = "#" + ("000000" + rgbToHex(p[0], p[1], p[2])).slice(-6);
+
     if (clickedPixel) {
       setDialogCoordinates({
         x: clickedPixel.x,
         y: clickedPixel.y,
-        color: clickedPixel.color,
+        color: hex,
       });
     }
-
     setClickedPixel(clickedPixel);
   };
 
@@ -85,6 +96,7 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
     //console.log(colorNum);
     ctx.fillRect(clickedPixel.x, clickedPixel.y, 10, 10);
     setPixel(clickedPixel.x, clickedPixel.y, colorNum);
+
 
     setDialogCoordinates(null);
     setClickedPixel(null);

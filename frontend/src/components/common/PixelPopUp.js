@@ -49,6 +49,7 @@ const PixelPopUp = ({ x, y, color,onClose ,onConfirm}) => {
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <p>X   &nbsp; {x / 10}</p>
                     <p>Y   &nbsp; {y / 10}</p>
+                    <p>Hex:   &nbsp; {color}</p>
                 </div>
                 <div style={ColorBoxStyle(color)}  onClick={handleColorBoxClick}></div>
             </div>
