@@ -10,18 +10,24 @@
   "backend": [
     {
       "id": 2,
+      "public_address": "0.0.0.0",
+      "public_port": 8000,
       "address": "127.0.0.1",
       "socket_port": 8005,
       "active": true 
     },
     {
       "id": 1,
+      "public_address": "0.0.0.0",
+      "public_port": 8001,
       "address": "127.0.0.1",
       "socket_port": 8006,
       "active": true 
     },
     {
       "id": 0,
+      "public_address": "0.0.0.0",
+      "public_port": 8002,
       "address": "127.0.0.1",
       "socket_port": 8007,
       "active": true 

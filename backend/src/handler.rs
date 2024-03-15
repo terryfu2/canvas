@@ -13,10 +13,10 @@ use crate::ReplicaHandle;
 /// How often heartbeat pings are sent.
 ///
 /// Should be half (or less) of the acceptable client timeout.
-const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(2);
 
 /// How long before lack of client response causes a timeout.
-const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
+const CLIENT_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Echo text & binary messages received from the client, respond to ping messages, and monitor
 /// connection health to detect network issues and free up resources.
@@ -26,12 +26,15 @@ pub async fn canvas_ws(
     mut msg_stream: actix_ws::MessageStream,
     pool: web::Data<Pool>
 ) {
-    log::info!("connected");
+    log::info!("WS connected");
 
     let mut last_heartbeat = Instant::now();
     let mut interval = interval(HEARTBEAT_INTERVAL);
 
-    let (_conn_tx, mut conn_rx) = mpsc::unbounded_channel::<Msg>();
+    let (conn_tx, mut conn_rx) = mpsc::unbounded_channel::<Msg>();
+
+    // unwrap: manager is not dropped before the HTTP server
+    let conn_id = replica_handle.connect(conn_tx).await;
 
     let close_reason = loop {
         // most of the futures we process need to be stack-pinned to work with select()
@@ -50,7 +53,6 @@ pub async fn canvas_ws(
         match select(messages, tick).await {
             // commands & messages received from client
             Either::Left((Either::Left((Some(Ok(msg)), _)), _)) => {
-                log::debug!("msg: {msg:?}");
 
                 match msg {
                     Message::Ping(bytes) => {
@@ -64,6 +66,7 @@ pub async fn canvas_ws(
                     }
 
                     Message::Text(text) => {
+                        log::debug!("msg: {text:?}");
                         let db = pool.get().await.unwrap();
                         Pixel::insert(db, text.to_string()).await.unwrap();
                         session.text(text.clone()).await.unwrap();
@@ -91,15 +94,22 @@ pub async fn canvas_ws(
             // client WebSocket stream ended
             Either::Left((Either::Left((None, _)), _)) => break None,
 
-            // forwards from other sessions. Not implemented
-            Either::Left((Either::Right((Some(chat_msg), _)), _)) => {
-                log::error!("Should not be here received {}", chat_msg);
+            // Got a message from the replica manager. Are we the new primary?
+            Either::Left((Either::Right((Some(msg), _)), _)) => {
+                log::info!("Message received from replica manager {}", msg);
+                if msg == "primary" {
+                    log::info!("Sending primary message to ws connection");
+                    session.text("primary").await.unwrap();
+                } else {
+                    log::error!("Unrecognized msg from replica manager {}", msg);
+                }
             }
 
             // all connection's message senders were dropped
-            Either::Left((Either::Right((None, _)), _)) => unreachable!(
-                "all connection message senders were dropped; chat server may have panicked"
-            ),
+            Either::Left((Either::Right((None, _)), _)) => {
+                log::info!("Replica manager stopped running. Only we are left");
+                break None; // Deal with this better
+            }
 
             // heartbeat internal tick
             Either::Right((_inst, _)) => {
@@ -116,6 +126,9 @@ pub async fn canvas_ws(
             }
         };
     };
+
+    replica_handle.disconnect(conn_id);
+
     // attempt to close connection gracefully
     let _ = session.close(close_reason).await;
 }

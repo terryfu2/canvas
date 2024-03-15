@@ -39,6 +39,7 @@ function App() {
 
   useEffect(() => {
     if (lastJsonMessage !== null) {
+      console.log(lastJsonMessage)
       switch (lastJsonMessage.command) {
         case "get_pixels":
           const newPixels = [];

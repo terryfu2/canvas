@@ -14,13 +14,24 @@ use serde_json;
 use crate::pixel::Pixel;
 use std::fs::File;
 use std::io::BufReader;
+use rand::{thread_rng, Rng as _};
+use std::collections::HashMap;
 
 /// A command received by the Replica
 #[derive(Debug)]
 pub enum Command {
+    Connect {
+        conn_tx: mpsc::UnboundedSender<Msg>,
+        res_tx: oneshot::Sender<usize>,
+    },
+
     Message {
         msg: Msg,
         res_tx: oneshot::Sender<()>,
+    },
+
+    Disconnect {
+        conn: usize,
     },
 }
 
@@ -33,6 +44,8 @@ pub struct ConnectionInfo {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct ReplicaInfo {
     pub id: u16,
+    pub public_address: String,
+    pub public_port: u16,
     pub address: String,
     pub socket_port: u16,
     pub active: bool
@@ -118,6 +131,8 @@ fn proc_id() -> u16 {
 /// Call and spawn [`run`](Self::run) to start processing commands.
 #[derive(Debug)]
 pub struct ReplicaManager {
+    /// Map of connection IDs to their message receivers.
+    sessions: HashMap<usize, mpsc::UnboundedSender<Msg>>,
 
     is_primary: bool,
 
@@ -164,6 +179,7 @@ impl ReplicaManager {
         log::info!("Leader id {}", leader_id);
         (
             Self {
+                sessions: HashMap::new(),
                 is_primary,
                 id,
                 db,
@@ -310,6 +326,8 @@ impl ReplicaManager {
             } else {
                 log::info!("Election we are the primary");
                 self.is_primary = true;
+                // let the websocket sessions know
+                self.send_primary_to_ws().await;
             }
          } else if election_type == "election" {
             if id > self.id {
@@ -470,6 +488,35 @@ impl ReplicaManager {
         }
     }
 
+    /// Let all ws sessions know that we are the new primary so they can forward that to their proxies
+    async fn send_primary_to_ws(&self) {
+        let msg = format!("primary");
+
+        for (id, session) in &self.sessions {
+            log::info!("Sending primary to session {}", id);
+            let _ = session.send(msg.clone());
+        }
+    }
+
+
+    /// Register new session and assign unique ID to this session. This is to talk to the other thread
+    async fn register_session(&mut self, tx: mpsc::UnboundedSender<Msg>) -> usize {
+        // register session with random connection ID
+        let id = thread_rng().gen::<usize>();
+        log::info!("Registering session {}", id);
+
+        self.sessions.insert(id, tx);
+
+        // send id back
+        id
+    }
+
+    /// Unregister a session and remove from map
+    async fn unregister_session(&mut self, conn_id: usize) {
+        log::info!("Unregistering session {}", conn_id);
+        self.sessions.remove(&conn_id);
+    }
+
     /// Processing of the replica stream logic after connection has been established
     pub async fn replica_stream_process(&mut self, cmd_rx: &mut UnboundedReceiver<Command>,predecessor_stream: &TcpStream) -> io::Result<()> {
         loop {
@@ -484,10 +531,17 @@ impl ReplicaManager {
                 // From Local
                 Either::Left((Some(cmd), _)) => {
                     match cmd {
+                        Command::Connect { conn_tx, res_tx } => {
+                            let conn_id = self.register_session(conn_tx).await;
+                            let _ = res_tx.send(conn_id);
+                        }
                         Command::Message { msg, res_tx } => {
                             log::info!("Msg received {}", msg);
                             self.send_successor(msg.as_bytes()).await?;
                             let _ = res_tx.send(());
+                        }
+                        Command::Disconnect { conn } => {
+                            self.unregister_session(conn).await;
                         }
                     }
                 },
@@ -551,6 +605,25 @@ impl ReplicaManager {
 
     pub async fn run(mut self, mut cmd_rx: UnboundedReceiver<Command>) -> io::Result<()> {
 
+        // We should get a connect from the ws thread
+        // log::error!("Waiting for connect from ws...");
+        // match cmd_rx.recv().await {
+        //     Some(cmd) => {
+        //         match cmd {
+        //             Command::Connect { conn_tx, res_tx } => {
+        //                 let conn_id = self.register_session(conn_tx).await;
+        //                 let _ = res_tx.send(conn_id);
+        //             }
+        //             Command::Message { msg, res_tx } => {
+        //                 log::error!("Got message instead of connect {}", msg);
+        //                 let _ = res_tx.send(());
+        //             }
+        //         }
+        //     }
+        //     None  => {
+        //         log::error!("No connect from ws thread");
+        //     }
+        // }
         // If we only have one connection no point in running this
         if ConnectionInfoDict::get_active_replicas(&self.connections_info.backend) == 1 {
             // Exit gracefully
@@ -621,7 +694,7 @@ impl ReplicaManager {
     }
 }
 
-/// Handle and command sender for chat server.
+/// Handle and command sender for manager.
 ///
 /// Reduces boilerplate of setting up response channels in WebSocket handlers.
 #[derive(Debug, Clone)]
@@ -630,6 +703,19 @@ pub struct ReplicaHandle {
 }
 
 impl ReplicaHandle {
+    /// Register client message sender and obtain connection ID.
+    pub async fn connect(&self, conn_tx: mpsc::UnboundedSender<String>) -> usize {
+        log::info!("Replica Handle connect");
+        let (res_tx, res_rx) = oneshot::channel();
+
+        // unwrap: manager should not have been dropped
+        self.cmd_tx
+            .send(Command::Connect { conn_tx, res_tx })
+            .unwrap();
+
+        // unwrap: manager does not drop out response channel
+        res_rx.await.unwrap()
+    }
 
     /// Send message to next replica
     pub async fn send_message(&self, msg: impl Into<String>) {
@@ -643,5 +729,11 @@ impl ReplicaHandle {
             .unwrap();
 
         res_rx.await.unwrap();
+    }
+
+    /// Unregister message sender
+    pub fn disconnect(&self, conn: usize) {
+        // unwrap: chat server should not have been dropped
+        self.cmd_tx.send(Command::Disconnect { conn }).unwrap();
     }
 }
