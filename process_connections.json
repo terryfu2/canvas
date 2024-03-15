@@ -9,7 +9,7 @@
   },
   "backend": [
     {
-      "id": 0,
+      "id": 2,
       "address": "127.0.0.1",
       "socket_port": 8005,
       "active": true 
@@ -21,7 +21,7 @@
       "active": true 
     },
     {
-      "id": 2,
+      "id": 0,
       "address": "127.0.0.1",
       "socket_port": 8007,
       "active": true 

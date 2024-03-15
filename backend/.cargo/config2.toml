@@ -12,5 +12,5 @@ PG_PASSWORD="<your_pass>"
 RUST_BACKTRACE="1"
 
 PRIMARY="false"
-ID="2"
+ID="0"
 CONNECTIONS_FILE="../process_connections.json"

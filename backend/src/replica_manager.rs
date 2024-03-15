@@ -1,5 +1,4 @@
 //! A multi-room chat server.
-use std::convert::TryInto;
 use tokio::net::{TcpStream, TcpListener};
 use std::io;
 use deadpool_postgres::Pool;
@@ -58,14 +57,16 @@ impl ConnectionInfoDict {
     }
 
     fn get_socket_addr(backend: &Vec<ReplicaInfo>, id: u16) -> SocketAddrV4 {
-        let replica_info: &ReplicaInfo = &backend[id as usize];
+        let replica_info: &ReplicaInfo = &backend.iter().find(|r| r.id == id).unwrap();
         let addr: Ipv4Addr = replica_info.address.parse::<Ipv4Addr>().unwrap();
         SocketAddrV4::new(addr, replica_info.socket_port)
     }
 
     fn get_successor_id(backend: &Vec<ReplicaInfo>, id: u16) -> u16 {
+        let index = backend.iter().position(|r| r.id == id).unwrap();
+
         // Create an iterator that starts from the specified index and cycles back to the beginning
-        let iter = backend.iter().cycle().skip(id as usize);
+        let iter = backend.iter().cycle().skip(index + 1);
 
         // Find the first element with active field set to true
         for item in iter {
@@ -77,24 +78,30 @@ impl ConnectionInfoDict {
         id // No active element found
     }
 
-    // fn get_predecessor_id(backend: &Vec<ReplicaInfo>, id: u16) -> u16 {
-    //     // Create an iterator that starts from the specified index and cycles back to the beginning
-    //     let iter = backend.iter().rev().cycle().skip(id as usize);
+    fn get_predecessor_id(backend: &Vec<ReplicaInfo>, id: u16) -> u16 {
+        let index = backend.iter().rev().position(|r| r.id == id).unwrap();
 
-    //     // Find the first element with active field set to true
-    //     for (i, item) in iter.enumerate() {
-    //         if item.active {
-    //             return item.id;
-    //         }
-    //     }
+        // Create an iterator that starts from the specified index and cycles back to the beginning, but in reverse
+        let iter = backend.iter().rev().cycle().skip(index + 1);
 
-    //     id // No active element found
-    // }
+        // Find the first element with active field set to true
+        for item in iter {
+            if item.active {
+                return item.id;
+            }
+        }
+
+        id // No active element found
+    }
+
+    fn set_active(backend: &mut Vec<ReplicaInfo>, id: u16, active: bool) {
+        let index = backend.iter().position(|r| r.id == id).unwrap();
+        backend[index as usize].active = active;
+    }
 }
 
+// TODO calc max size or find it experimentally
 const REPLICA_BUFFER_SIZE: usize = 102400;
-
-// const ADDR: Ipv4Addr = Ipv4Addr::LOCALHOST;
 
 fn connections_file() -> String {
     std::env::var("CONNECTIONS_FILE").unwrap_or_else(|_| "../../process_connections.json".into())
@@ -131,7 +138,8 @@ pub struct ReplicaManager {
     predecessor_id: u16,
     successor_id: u16,
 
-    predecessor_listener: Option<TcpListener>
+    predecessor_listener: Option<TcpListener>,
+    leader_id: u16
 }
 
 impl ReplicaManager {
@@ -145,22 +153,15 @@ impl ReplicaManager {
         // Read the JSON contents of the file
         let connections_info: ConnectionInfoDict = serde_json::from_reader(reader).unwrap();
 
-        // Maybe this would be bad, but I doubt we while have more then sizeof(u16) replicas
-        let replica_count: u16 = connections_info.backend.len().try_into().unwrap();
-        let predecessor_id;
-        let successor_id;
-        if id == 0 {
-            predecessor_id = replica_count - 1;
-            successor_id = id + 1;
-        } else if id == (replica_count - 1) {
-            successor_id = 0;
-            predecessor_id = id - 1;
-        } else {
-            predecessor_id = id - 1;
-            successor_id = id + 1;
-        }
+        
+        let successor_id= ConnectionInfoDict::get_successor_id(&connections_info.backend, id);
+        let predecessor_id = ConnectionInfoDict::get_predecessor_id(&connections_info.backend, id);
+
+        // Leader starts as first instance of backend list
+        let leader_id = connections_info.backend[0].id;
         log::info!("Successor id {}", successor_id);
         log::info!("Predecessor id {}", predecessor_id);
+        log::info!("Leader id {}", leader_id);
         (
             Self {
                 is_primary,
@@ -173,6 +174,7 @@ impl ReplicaManager {
                 predecessor_id: predecessor_id,
                 successor_id: successor_id,
                 predecessor_listener: None,
+                leader_id
             },
             ReplicaHandle { cmd_tx },
         )
@@ -298,6 +300,8 @@ impl ReplicaManager {
 
         if election_type == "leader" {
             self.election_running = false;
+            log::info!("New leader elected {}", id);
+            self.leader_id = id;
             if id != self.id {
                 self.is_primary = false;
                 let election_message = format!("/election leader {}", id);
@@ -334,22 +338,32 @@ impl ReplicaManager {
     /// Received a disconnect message. If its our successor get a new connection
     pub async fn handle_disconnect_msg(&mut self, msg: String) -> io::Result<()> {
         log::info!("Disconnect msg received {}", msg);
+
+        // Get id that disconnected
         let id = match msg.parse::<u16>() {
             Ok(val) => val,
             Err(e) => {
-                log::error!("Disconnect parse error {} using value {}", e, self.predecessor_id);
-                self.predecessor_id
+                log::error!("Disconnect parse error {} using value {}", e, self.successor_id);
+                self.successor_id
             }
         };
         
-        self.connections_info.backend[id as usize].active = false;
+        ConnectionInfoDict::set_active(&mut self.connections_info.backend, id, false);
+
 
         if id == self.successor_id {
-            let new_id = ConnectionInfoDict::get_successor_id(&self.connections_info.backend, id);
-            log::info!("Found new successor {} attempting to establish connection", new_id);
+            let new_id = ConnectionInfoDict::get_successor_id(&self.connections_info.backend, self.id);
+            log::info!("Found new successor attempting to establish connection. id: {}", new_id);
             self.successor_id = new_id;
+            log::info!("New successor id {}", self.predecessor_id);
             self.successor_stream = Some(TcpStream::connect(ConnectionInfoDict::get_socket_addr(&self.connections_info.backend, new_id)).await?);
             log::info!("Connected");
+
+            // Either this one or the other one needs to start an election
+            // I am not sure whats better
+            if id == self.leader_id {
+                self.initiate_election().await?;
+            }
             return Ok(())
         } else { // Forward
             let disconnect_msg = format!("/disconnect {}", id);
@@ -370,8 +384,8 @@ impl ReplicaManager {
         let my_addr = ConnectionInfoDict::get_socket_addr(backend, id);
 
         // We need to change this to a select async. That would be cool
-        // todo change to handle more than 2 replicas
-        if id == 0 {
+        // It would have to poll connect whilst listening. Probably too complex for this project honestly
+        if id == 2 {
             let listener = TcpListener::bind(my_addr).await?;
             log::info!("Listening on  {}", my_addr.port());
 
@@ -428,7 +442,7 @@ impl ReplicaManager {
     /// Return false if it is no longer possible to recover replica manager process
     pub async fn handle_predecessor_disconnect(&mut self) -> io::Result<TcpStream> {
         log::info!("Attempting to connect to new predecessor");
-        self.connections_info.backend[self.predecessor_id as usize].active = false;
+        ConnectionInfoDict::set_active(&mut self.connections_info.backend, self.predecessor_id, false);
         if ConnectionInfoDict::get_active_replicas(&self.connections_info.backend) == 1 {
             log::error!("We cannot recover replica manager proc");
             return Err(io::ErrorKind::Other.into())
@@ -436,9 +450,12 @@ impl ReplicaManager {
 
         let msg = format!("/disconnect {}", self.predecessor_id);
         self.send_successor(msg.as_bytes()).await?;
+        self.predecessor_id = ConnectionInfoDict::get_predecessor_id(&mut self.connections_info.backend, self.id);
+        log::info!("New predecessor id {}", self.predecessor_id);
 
         match self.predecessor_listener.as_mut() {
             Some(listener) => {
+                log::info!("Listening for new connection");
                 let (predecessor_stream, _) = listener.accept().await?;
                 log::info!("Connected!");
                 return Ok(predecessor_stream);
@@ -533,6 +550,12 @@ impl ReplicaManager {
     // }
 
     pub async fn run(mut self, mut cmd_rx: UnboundedReceiver<Command>) -> io::Result<()> {
+
+        // If we only have one connection no point in running this
+        if ConnectionInfoDict::get_active_replicas(&self.connections_info.backend) == 1 {
+            // Exit gracefully
+            return Ok(());
+        }
 
         let mut predecessor_stream: TcpStream = self.connect_streams().await?;
 
