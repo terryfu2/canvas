@@ -66,9 +66,10 @@ pub async fn canvas_ws(
                     Message::Text(text) => {
                         let db = pool.get().await.unwrap();
                         Pixel::insert(db, text.to_string()).await.unwrap();
+                        session.text(text.clone()).await.unwrap();
                         replica_handle.send_message(text).await
                     }
-
+                    
                     Message::Binary(_bin) => {
                         log::warn!("unexpected binary message");
                     }

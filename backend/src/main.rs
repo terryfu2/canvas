@@ -11,6 +11,7 @@ use tokio::{
 mod postgres;
 mod pixel;
 mod handler;
+use serde_json::json;
 
 mod replica_manager;
 
@@ -32,7 +33,10 @@ async fn get_pixels(pool: web::Data<Pool>) -> HttpResponse {
         }
     };
     match pixel::Pixel::all(&**client).await {
-        Ok(list) => HttpResponse::Ok().json(list),
+        Ok(list) => HttpResponse::Ok().json((json!({
+            "command": "get_pixels",
+            "payload": list,
+        }))),
         Err(err) => {
             log::debug!("unable to fetch pixels: {:?}", err);
             return HttpResponse::InternalServerError().json("unable to fetch pixels");
@@ -90,7 +94,6 @@ async fn main() -> std::io::Result<()> {
     let is_primary = is_primary();
     let (replica_handler, tx) = ReplicaManager::new(is_primary, pg_pool.clone(), cmd_tx);
 
-    
     let chat_server = spawn(replica_handler.run(cmd_rx));
 
     let address = address();

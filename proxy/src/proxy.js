@@ -1,33 +1,85 @@
-const http = require('http');
-const httpProxy = require('http-proxy');
+const WebSocket = require("ws");
+const http = require("http");
 
-// Create a new proxy server instance
-const proxy = httpProxy.createProxyServer({});
+let backendClient;
 
-// Create HTTP proxy server
-const server = http.createServer((req, res) => {
-    // Proxy HTTP requests
-    // proxy.web(req, res, { target: `http://${process.env.REACT_APP_BACKEND_HOST}:${process.env.REACT_APP_BACKEND_PORT}` });
-    proxy.web(req, res, { target: `http://127.0.0.1:8000` });
+// This is the server that clients will connect to
+const clientServer = new WebSocket.Server({ port: 3001 });
+clientServer.on("connection", (clientSocket) => {
+  console.log("Client connected");
+
+  // Proxy messages from client to backend
+  clientSocket.on("message", (message) => {
+    try {
+      const parsedMessage = JSON.parse(message);
+      console.log("Received message from client:", parsedMessage);
+      switch (parsedMessage.command) {
+        // Get the current state of the canvas
+        // Used on the initial load for a client
+        case "get_pixels":
+          http
+            .get("http://localhost:8000/canvas", (res) => {
+              let data = "";
+              res.on("data", (chunk) => {
+                data += chunk;
+              });
+              res.on("end", () => {
+                clientSocket.send(data);
+              });
+            })
+            .on("error", (error) => {
+              console.error("Error making request to backend:", error.message);
+            });
+          break;
+        // Set a specific pixel
+        case "set_pixel":
+          backendClient.send(JSON.stringify(parsedMessage.payload));
+          break;
+        default:
+          console.log("Invalid command:", parsedMessage.command);
+      }
+    } catch (error) {
+      console.error("Error parsing message:", error);
+    }
+  });
 });
 
-// Listen for `upgrade` event (will establish WebSocket connection by upgrading a HTTP request)
-server.on('upgrade', (req, socket, head) => {
-    // proxy.ws(req, socket, head, { target: `ws://${process.env.REACT_APP_BACKEND_HOST}:${process.env.REACT_APP_BACKEND_PORT}` });
-    proxy.ws(req, socket, head, { target: `ws://127.0.0.1:8000` });
-});
+// This is the connection to the primary replica
+// I think that this should probably be replaced by a simpler solution eventually
+function connectToBackend() {
+  backendClient = new WebSocket("ws://localhost:8000/ws");
 
-// Handle errors
-proxy.on('error', (err, req, res) => {
-    res.writeHead(500, {
-        'Content-Type': 'text/plain'
-    });
+  backendClient.on("open", () => {
+    console.log("Connected to backend");
+  });
 
-    res.end('Something went wrong.');
-});
+  backendClient.on("close", () => {
+    console.log("Connection to backend closed");
+    // Attempt to reconnect after 5 seconds
+    setTimeout(connectToBackend, 5000);
+  });
 
-// Start the server lisenting on http port
-const PORT = 3001;
-server.listen( PORT, () => {
-    console.log(`Proxy server listening on port ${PORT}`);
-});
+  backendClient.on("error", (error) => {
+    console.error("Error connecting to backend:", error.message);
+    // Attempt to reconnect after 5 seconds
+    setTimeout(connectToBackend, 5000);
+  });
+
+  backendClient.on("message", (message) => {
+    try {
+      const parsedMessage = JSON.parse(message);
+      console.log("Received message from backend:", parsedMessage);
+      clientServer.clients.forEach((clientSocket) => {
+        clientSocket.send(
+          JSON.stringify({
+            command: "set_pixel",
+            payload: parsedMessage,
+          })
+        );
+      });
+    } catch (error) {
+      console.error("Error parsing message:", error);
+    }
+  });
+}
+connectToBackend();
