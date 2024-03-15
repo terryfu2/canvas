@@ -94,7 +94,8 @@ async fn main() -> std::io::Result<()> {
     let is_primary = is_primary();
     let (replica_handler, tx) = ReplicaManager::new(is_primary, pg_pool.clone(), cmd_tx);
 
-    let chat_server = spawn(replica_handler.run(cmd_rx));
+    
+    let replica_join_handle = spawn(replica_handler.run(cmd_rx));
 
     let address = address();
     log::info!("address {}", address);
@@ -113,7 +114,7 @@ async fn main() -> std::io::Result<()> {
     .bind(&address)?
     .run();
 
-    try_join!(http_server, async move { chat_server.await.unwrap() })?;
+    try_join!(http_server, async move { replica_join_handle.await.unwrap() })?;
 
     Ok(())
 }
