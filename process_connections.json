@@ -1,0 +1,30 @@
+{
+  "frontend": {
+    "address": "localhost",
+    "port": 3001
+  },
+  "proxy": {
+    "address": "localhost",
+    "port": 3001
+  },
+  "backend": [
+    {
+      "id": 0,
+      "address": "127.0.0.1",
+      "socket_port": 8005,
+      "active": true 
+    },
+    {
+      "id": 1,
+      "address": "127.0.0.1",
+      "socket_port": 8006,
+      "active": true 
+    },
+    {
+      "id": 2,
+      "address": "127.0.0.1",
+      "socket_port": 8007,
+      "active": true 
+    }
+  ]
+}

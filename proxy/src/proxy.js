@@ -18,7 +18,7 @@ clientServer.on("connection", (clientSocket) => {
         // Used on the initial load for a client
         case "get_pixels":
           http
-            .get("http://localhost:8000/canvas", (res) => {
+            .get("http://0.0.0.0:8000/canvas", (res) => {
               let data = "";
               res.on("data", (chunk) => {
                 data += chunk;
@@ -47,7 +47,7 @@ clientServer.on("connection", (clientSocket) => {
 // This is the connection to the primary replica
 // I think that this should probably be replaced by a simpler solution eventually
 function connectToBackend() {
-  backendClient = new WebSocket("ws://localhost:8000/ws");
+  backendClient = new WebSocket("ws://0.0.0.0:8000/ws");
 
   backendClient.on("open", () => {
     console.log("Connected to backend");

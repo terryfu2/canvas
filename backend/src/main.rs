@@ -33,10 +33,10 @@ async fn get_pixels(pool: web::Data<Pool>) -> HttpResponse {
         }
     };
     match pixel::Pixel::all(&**client).await {
-        Ok(list) => HttpResponse::Ok().json((json!({
+        Ok(list) => HttpResponse::Ok().json(json!({
             "command": "get_pixels",
             "payload": list,
-        }))),
+        })),
         Err(err) => {
             log::debug!("unable to fetch pixels: {:?}", err);
             return HttpResponse::InternalServerError().json("unable to fetch pixels");

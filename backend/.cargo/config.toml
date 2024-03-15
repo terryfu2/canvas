@@ -10,9 +10,7 @@ PG_PORT="5432"
 PG_USER="postgres"
 PG_PASSWORD="<your_pass>"
 RUST_BACKTRACE="1"
+
 PRIMARY="true"
 ID="0"
-
-SOCKET_PORT="8005"
-SUCCESSOR_PORT="8008"
-PREDECESSOR_PORT="8006"
+CONNECTIONS_FILE="../process_connections.json"
