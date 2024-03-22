@@ -5,11 +5,15 @@ import PixelPopUp from "./common/PixelPopUp";
 import Footer from "./footer/Footer";
 
 const Canvas = ({ setPixel, width, height, pixels }) => {
-  const canvasRef = useRef(null);
+  const canvasRef = useRef(null); 
 
   const [dialogCoordinates, setDialogCoordinates] = useState(null);
   const [hoveredPixel, setHoveredPixel] = useState({ x: 0, y: 0 });
   const [clickedPixel, setClickedPixel] = useState(null);
+  const [confirmClicked, setConfirmClicked] = useState(false);
+  const [timeoutEnabled, setTimeoutEnabled] = useState(false);
+
+
 
   // Redraw the canvas when the pixel data changes
   useEffect(() => {
@@ -84,6 +88,14 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
   };
 
   const handleConfirm = (color) => {
+
+    if(clickedPixel.color == 'white' && color == '#ffffff' || clickedPixel.color == color){
+        setDialogCoordinates(null);
+        setClickedPixel(null);
+        return;
+    }
+    setConfirmClicked(true);
+
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
@@ -98,6 +110,21 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
 
     setDialogCoordinates(null);
     setClickedPixel(null);
+
+    if(timeoutEnabled){
+        setTimeout(() => {
+            setConfirmClicked(false);
+        }, 5000);     
+    }
+    if(!timeoutEnabled){
+        setConfirmClicked(false);
+    }
+  };
+
+  const handleSwitchChange = (data) => {
+    setTimeoutEnabled(!timeoutEnabled);
+    console.log(timeoutEnabled);
+
   };
 
   return (
@@ -125,12 +152,14 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
           color={dialogCoordinates.color}
           onClose={handleCloseDialog}
           onConfirm={handleConfirm}
+          disabledConfirm = {confirmClicked}
         />
       )}
 
       <Footer
         x={hoveredPixel ? hoveredPixel.x : 0}
         y={hoveredPixel ? hoveredPixel.y : 0}
+        sendTimeout = {handleSwitchChange}
       ></Footer>
     </div>
   );

@@ -1,13 +1,27 @@
-import React, { useRef } from 'react';
+import React, { useRef,useState } from 'react';
 import { exportComponentAsPNG } from 'react-component-export-image';
+import Switch from '@mui/material/Switch';
 
-function Footer(hoveredPixel) {
+const label = { inputProps: { 'aria-label': 'Switch demo' } };
+
+function Footer({ x,y, sendTimeout }) {
     const componentRef = useRef();
+    const [timeoutEnabled, setTimeoutEnabled] = useState(false);
+
+    const handleSwitchChange = () => {
+        setTimeoutEnabled(!timeoutEnabled);
+        sendTimeout(timeoutEnabled);
+    };
 
     return (
         <div style={footerStyle}>
             <h1 style={{ marginRight: 'auto' }}>canvas</h1>
-            <p style={{ marginRight: 'auto'}}>({hoveredPixel.x/10}, {hoveredPixel.y/10}) </p>
+            <p style={{ marginRight: 'auto'}}>
+                ({x / 10 || 0}, {y / 10 || 0})
+            </p>
+            <div style={{ marginRight: '100px' }}> {/* Adjust the margin-left */}
+                <Switch {...label} onChange={handleSwitchChange} />
+            </div>
 
             {/*<button
                 className='button-outline'
