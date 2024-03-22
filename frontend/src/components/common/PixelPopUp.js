@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {SketchPicker } from 'react-color';
+import "../../styles/button.scss"
 
-const PixelPopUp = ({ x, y, color,onClose ,onConfirm}) => {
+const PixelPopUp = ({ x, y, color,onClose ,onConfirm,disabledConfirm}) => {
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [selectedColor, setSelectedColor] = useState(color);
 
@@ -47,16 +48,16 @@ const PixelPopUp = ({ x, y, color,onClose ,onConfirm}) => {
         <div style={PopUpStyle()}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <p>X   &nbsp; {x / 10}</p>
-                    <p>Y   &nbsp; {y / 10}</p>
-                    <p>Hex:   &nbsp; {color}</p>
+                    <p><strong>X</strong>   &nbsp; {x / 10}</p>
+                    <p><strong>Y</strong>  &nbsp; {y / 10}</p>
+                    <p><strong>Hex</strong>   &nbsp; {color}</p>
                 </div>
                 <div style={ColorBoxStyle(color)}  onClick={handleColorBoxClick}></div>
             </div>
             {showColorPicker && <SketchPicker color={selectedColor} onChange={handleColorChange} disableAlpha = {true}/>}
             <div>
-                <button onClick={onClose}>Close</button>
-                <button onClick={handleConfirm} style={{ marginLeft: '10px' }}>Confirm</button>
+                <button onClick={onClose} className = 'button-89'>Close</button>
+                <button className = 'button-89' onClick={handleConfirm} disabled = {disabledConfirm} style={{ marginLeft: '10px' } }>Confirm</button>
 
             </div>
         </div>

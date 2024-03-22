@@ -43,8 +43,8 @@ function App() {
       switch (lastJsonMessage.command) {
         case "get_pixels":
           const newPixels = [];
-          for (var i = 0; i < 210; i++) {
-            for (var j = 0; j < 210; j++) {
+          for (var i = 0; i < 510; i++) {
+            for (var j = 0; j < 510; j++) {
               newPixels.push(new Pixel(i * 10, j * 10, "white"));
             }
           }
@@ -99,7 +99,7 @@ function App() {
 
   return (
     <div className="App">
-      <Canvas setPixel={setPixel} pixels={pixels} width={2010} height={2010} />
+      <Canvas setPixel={setPixel} pixels={pixels} width={5010} height={5010} />
     </div>
   );
 }
