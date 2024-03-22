@@ -19,3 +19,8 @@ Follow the instructions in [`the proxy readme`](proxy/README.md)
 
 ### Backend
 Follow the instructions in [`the backend readme`](backend/README.md)
+
+#### Setup csv tables
+truncate canvas;
+https://www.postgresqltutorial.com/postgresql-tutorial/import-csv-file-into-posgresql-table/
+
