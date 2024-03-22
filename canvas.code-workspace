@@ -26,24 +26,8 @@
           "cwd": "${workspaceFolder:frontend}"
         },
         "presentation": {
-          "reveal": "always",
-          "group": "cpsc559",
-          "panel": "dedicated"
-        },
-        "runOptions": {
-          "runOn": "folderOpen"
-        }
-      },
-      {
-        "label": "backend",
-        "type": "shell",
-        "command": "cargo run",
-        "options": {
-          "cwd": "${workspaceFolder:backend}"
-        },
-        "presentation": {
-          "reveal": "always",
-          "group": "cpsc559",
+          "reveal": "silent",
+          "group": "cpsc559-frontend",
           "panel": "dedicated"
         },
         "runOptions": {
@@ -58,8 +42,57 @@
           "cwd": "${workspaceFolder:proxy}"
         },
         "presentation": {
-          "reveal": "always",
-          "group": "cpsc559",
+          "reveal": "silent",
+          "group": "cpsc559-frontend",
+          "panel": "dedicated"
+        },
+        "runOptions": {
+          "runOn": "folderOpen"
+        }
+      },
+
+      {
+        "label": "replica-1",
+        "type": "shell",
+        "command": "cargo run",
+        "options": {
+          "cwd": "${workspaceFolder:backend}"
+        },
+        "presentation": {
+          "reveal": "silent",
+          "group": "cpsc559-backend",
+          "panel": "dedicated"
+        },
+        "runOptions": {
+          "runOn": "folderOpen"
+        }
+      },
+      {
+        "label": "replica-2",
+        "type": "shell",
+        "command": "cargo run --config ./.cargo/config1.toml",
+        "options": {
+          "cwd": "${workspaceFolder:backend}"
+        },
+        "presentation": {
+          "reveal": "silent",
+          "group": "cpsc559-backend",
+          "panel": "dedicated"
+        },
+        "runOptions": {
+          "runOn": "folderOpen"
+        }
+      },
+      {
+        "label": "replica-3",
+        "type": "shell",
+        "command": "cargo run --config ./.cargo/config2.toml",
+        "options": {
+          "cwd": "${workspaceFolder:backend}"
+        },
+        "presentation": {
+          "reveal": "silent",
+          "group": "cpsc559-backend",
           "panel": "dedicated"
         },
         "runOptions": {
