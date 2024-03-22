@@ -13,7 +13,13 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
   const [confirmClicked, setConfirmClicked] = useState(false);
   const [timeoutEnabled, setTimeoutEnabled] = useState(false);
 
+  const [canClickPixel,setCanClickPixel] = useState(true);
+  const [isMouseMoved,setIsMouseMoved] = useState(false);
 
+  const [mapState, setMapState] = useState({
+    scale: 0.8,
+    translation: { x: 25, y: 25 },
+  });
 
   // Redraw the canvas when the pixel data changes
   useEffect(() => {
@@ -38,11 +44,29 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
     return ((r << 16) | (g << 8) | b).toString(16);
   }
 
+
+
   const handleClickPixel = (event) => {
+
+    if(!canClickPixel){
+        return;
+    }
+    const rect = event.target.getBoundingClientRect();
+    const clickedX = (event.clientX - rect.left) / mapState.scale;
+    const clickedY = (event.clientY - rect.top) / mapState.scale;
+
+    const newScale = 13; // Zoom scale
+    const newTranslationX = -(clickedX * newScale - event.clientX);
+    const newTranslationY = -(clickedY * newScale - event.clientY);
+
+    setMapState({
+      scale: newScale,
+      translation: { x: newTranslationX, y: newTranslationY },
+    });
+
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-
-    const rect = canvas.getBoundingClientRect();
+    //const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     const x = (event.clientX - rect.left) * scaleX;
@@ -68,6 +92,8 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
   };
 
   const handleMouseMove = (event) => {
+    setIsMouseMoved(true);
+
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -114,7 +140,7 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
     if(timeoutEnabled){
         setTimeout(() => {
             setConfirmClicked(false);
-        }, 5000);     
+        }, 9000);     
     }
     if(!timeoutEnabled){
         setConfirmClicked(false);
@@ -127,13 +153,41 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
 
   };
 
+  const handleDragStart = (event) =>{
+
+    setIsMouseMoved(false);
+    setCanClickPixel(false);
+  }
+  const handleDragEnd = (event) =>{
+
+    if(isMouseMoved){
+        setTimeout(() => {
+            setCanClickPixel(true);
+            setIsMouseMoved(false)
+        }, 1000); 
+    }
+    else{
+        setCanClickPixel(true);
+
+    }
+  }
+
+
+
   return (
     <div>
-      <MapInteractionCSS>
+      <MapInteractionCSS
+        showControls
+        value={mapState} 
+        onChange={(value) => setMapState(value)} 
+        minScale={0.6}
+        maxScale={20}
+      >
         <canvas
           ref={canvasRef}
           width={width}
           height={height}
+          draggable = {true}
           style={{
             width: "100%",
             height: "100%",
@@ -142,6 +196,8 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
           }}
           onClick={handleClickPixel}
           onMouseMove={handleMouseMove}
+          onMouseDown = {handleDragStart}
+          onMouseUp = {handleDragEnd}
         />
       </MapInteractionCSS>
 
