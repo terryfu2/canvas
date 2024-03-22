@@ -37,7 +37,7 @@
       {
         "label": "proxy",
         "type": "shell",
-        "command": "cd src && npm install && node proxy.js",
+        "command": "sleep 2 && cd src && npm install && node proxy.js",
         "options": {
           "cwd": "${workspaceFolder:proxy}"
         },
@@ -70,7 +70,7 @@
       {
         "label": "replica-2",
         "type": "shell",
-        "command": "cargo run --config ./.cargo/config1.toml",
+        "command": "sleep 1 && cargo run --config ./.cargo/config1.toml",
         "options": {
           "cwd": "${workspaceFolder:backend}"
         },
@@ -86,7 +86,7 @@
       {
         "label": "replica-3",
         "type": "shell",
-        "command": "cargo run --config ./.cargo/config2.toml",
+        "command": "sleep 1 && cargo run --config ./.cargo/config2.toml",
         "options": {
           "cwd": "${workspaceFolder:backend}"
         },

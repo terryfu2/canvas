@@ -1,14 +1,15 @@
-use std::time::{Duration, Instant};
+use crate::ReplicaHandle;
+use crate::{pixel::Pixel, Msg};
 use actix_web::web;
 use actix_ws::Message;
+use deadpool_postgres::Pool;
 use futures_util::{
     future::{select, Either},
     StreamExt as _,
 };
-use deadpool_postgres::Pool;
+use serde_json::Value;
+use std::time::{Duration, Instant};
 use tokio::{pin, sync::mpsc, time::interval};
-use crate::{pixel::Pixel, Msg};
-use crate::ReplicaHandle;
 
 /// How often heartbeat pings are sent.
 ///
@@ -24,7 +25,7 @@ pub async fn canvas_ws(
     replica_handle: ReplicaHandle,
     mut session: actix_ws::Session,
     mut msg_stream: actix_ws::MessageStream,
-    pool: web::Data<Pool>
+    pool: web::Data<Pool>,
 ) {
     log::info!("WS connected");
 
@@ -48,12 +49,10 @@ pub async fn canvas_ws(
         // TODO: nested select is pretty gross for readability on the match
         let messages = select(msg_stream.next(), msg_rx);
         pin!(messages);
-        
-        
+
         match select(messages, tick).await {
             // commands & messages received from client
             Either::Left((Either::Left((Some(Ok(msg)), _)), _)) => {
-
                 match msg {
                     Message::Ping(bytes) => {
                         last_heartbeat = Instant::now();
@@ -69,10 +68,9 @@ pub async fn canvas_ws(
                         log::debug!("msg: {text:?}");
                         let db = pool.get().await.unwrap();
                         Pixel::insert(db, text.to_string()).await.unwrap();
-                        session.text(text.clone()).await.unwrap();
                         replica_handle.send_message(text).await
                     }
-                    
+
                     Message::Binary(_bin) => {
                         log::warn!("unexpected binary message");
                     }
@@ -100,6 +98,10 @@ pub async fn canvas_ws(
                 if msg == "primary" {
                     log::info!("Sending primary message to ws connection");
                     session.text("primary").await.unwrap();
+                } else if msg.starts_with("replicated") {
+                    let payload = msg.trim_start_matches("replicated: ");
+                    log::info!("Sending replicated message to ws connection");
+                    session.text(payload).await.unwrap();
                 } else {
                     log::error!("Unrecognized msg from replica manager {}", msg);
                 }
