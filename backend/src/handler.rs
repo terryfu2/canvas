@@ -102,6 +102,10 @@ pub async fn canvas_ws(
                     let payload = msg.trim_start_matches("replicated: ");
                     log::info!("Sending replicated message to ws connection");
                     session.text(payload).await.unwrap();
+                } else if msg.starts_with("unreplicated") {
+                    let payload = msg.trim_start_matches("unreplicated: ");
+                    log::info!("Sending unreplicated message to ws connection");
+                    session.text(payload).await.unwrap();
                 } else {
                     log::error!("Unrecognized msg from replica manager {}", msg);
                 }

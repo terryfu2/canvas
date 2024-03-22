@@ -12,6 +12,9 @@ use std::io;
 use std::io::BufReader;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::str;
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::pin;
@@ -556,6 +559,16 @@ impl ReplicaManager {
         }
     }
 
+    /// Let all ws sessions know that the message was successfully applied to all replicas
+    async fn send_unreplicated_to_ws(&self, msg: String) {
+        let msg = format!("unreplicated: {}", msg);
+
+        for (id, session) in &self.sessions {
+            log::info!("Sending unreplicated to session {}", id);
+            let _ = session.send(msg.clone());
+        }
+    }
+
     /// Register new session and assign unique ID to this session. This is to talk to the other thread
     async fn register_session(&mut self, tx: mpsc::UnboundedSender<Msg>) -> usize {
         // register session with random connection ID
@@ -590,24 +603,42 @@ impl ReplicaManager {
 
             match select(msg_rx, stream_ready).await {
                 // From Local
-                Either::Left((Some(cmd), _)) => match cmd {
-                    Command::Connect { conn_tx, res_tx } => {
-                        let conn_id = self.register_session(conn_tx).await;
-                        let _ = res_tx.send(conn_id);
-                    }
-                    Command::Message { msg, res_tx } => {
-                        log::info!("Message received: {}", msg);
-                        if self.is_primary {
-                            log::info!("Added message to expected message queue");
-                            self.expected_queue.push_back(msg.clone());
+                Either::Left((Some(cmd), _)) => {
+                    match cmd {
+                        Command::Connect { conn_tx, res_tx } => {
+                            let conn_id = self.register_session(conn_tx).await;
+                            let _ = res_tx.send(conn_id);
                         }
-                        self.send_successor(msg.as_bytes()).await?;
-                        let _ = res_tx.send(());
+                        Command::Message { msg, res_tx } => {
+                            log::info!("Message received: {}", msg);
+                            if self.is_primary {
+                                // Ensure that the message has been fully replicated
+                                // We do this by adding the message to an expected message queue
+                                // 5 seconds later we check if the expected message queue no longer contains
+                                // that message
+                                self.expected_queue.push_back(msg.clone());
+                                log::info!("Added message to expected message queue");
+
+                                // thread::sleep(Duration::from_secs(5));
+
+                                // if let Some(expected) = self.expected_queue.front() {
+                                //     if expected.as_str() == msg {
+                                //         log::info!(
+                                //             "Expected message was not received after 5 seconds"
+                                //         );
+                                //         self.expected_queue.pop_front();
+                                //         self.send_unreplicated_to_ws(msg);
+                                //     }
+                                // }
+                            }
+                            self.send_successor(msg.as_bytes()).await?;
+                            let _ = res_tx.send(());
+                        }
+                        Command::Disconnect { conn } => {
+                            self.unregister_session(conn).await;
+                        }
                     }
-                    Command::Disconnect { conn } => {
-                        self.unregister_session(conn).await;
-                    }
-                },
+                }
                 // From Sockets
                 Either::Right((response, _)) => {
                     match response {
