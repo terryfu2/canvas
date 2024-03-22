@@ -1,21 +1,22 @@
 //! A multi-room chat server.
-use tokio::net::{TcpStream, TcpListener};
-use std::io;
+use crate::pixel::Pixel;
+use crate::Msg;
 use deadpool_postgres::Pool;
+use futures_util::future::{select, Either};
+use rand::{thread_rng, Rng as _};
+use serde_json;
+use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::fs::File;
+use std::io;
+use std::io::BufReader;
+use std::net::{Ipv4Addr, SocketAddrV4};
+use std::str;
 use tokio::io::AsyncWriteExt;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::pin;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::{mpsc, oneshot};
-use std::net::{Ipv4Addr, SocketAddrV4};
-use crate::Msg;
-use futures_util::future::{select, Either};
-use tokio::pin;
-use std::str;
-use serde_json;
-use crate::pixel::Pixel;
-use std::fs::File;
-use std::io::BufReader;
-use rand::{thread_rng, Rng as _};
-use std::collections::HashMap;
 
 /// A command received by the Replica
 #[derive(Debug)]
@@ -48,14 +49,14 @@ pub struct ReplicaInfo {
     pub public_port: u16,
     pub address: String,
     pub socket_port: u16,
-    pub active: bool
+    pub active: bool,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct ConnectionInfoDict {
     pub frontend: ConnectionInfo,
     pub proxy: ConnectionInfo,
-    pub backend: Vec<ReplicaInfo>
+    pub backend: Vec<ReplicaInfo>,
 }
 
 impl ConnectionInfoDict {
@@ -121,9 +122,11 @@ fn connections_file() -> String {
 }
 
 fn proc_id() -> u16 {
-    std::env::var("ID").unwrap_or_else(|_| "0".into()).parse::<u16>().unwrap_or_else(|_| 0)
+    std::env::var("ID")
+        .unwrap_or_else(|_| "0".into())
+        .parse::<u16>()
+        .unwrap_or_else(|_| 0)
 }
-
 
 /// Manages the messages to and from replicas.
 ///
@@ -141,24 +144,29 @@ pub struct ReplicaManager {
 
     /// Postgres db_connection
     db: Pool,
-    
+
     successor_stream: Option<TcpStream>,
 
     election_running: bool,
 
     // We can add this back later
     // predecessor_stream: Option<TcpStream>
-
     connections_info: ConnectionInfoDict,
     predecessor_id: u16,
     successor_id: u16,
 
     predecessor_listener: Option<TcpListener>,
-    leader_id: u16
+    leader_id: u16,
+
+    expected_queue: VecDeque<String>,
 }
 
 impl ReplicaManager {
-    pub fn new(is_primary: bool, db: Pool, cmd_tx: mpsc::UnboundedSender<Command>) -> (Self, ReplicaHandle) {
+    pub fn new(
+        is_primary: bool,
+        db: Pool,
+        cmd_tx: mpsc::UnboundedSender<Command>,
+    ) -> (Self, ReplicaHandle) {
         let id = proc_id();
         log::info!("Proc id is {}", id);
         // Open the file in read-only mode with buffer.
@@ -168,9 +176,10 @@ impl ReplicaManager {
         // Read the JSON contents of the file
         let connections_info: ConnectionInfoDict = serde_json::from_reader(reader).unwrap();
 
-        
-        let successor_id= ConnectionInfoDict::get_successor_id(&connections_info.backend, id);
+        let successor_id = ConnectionInfoDict::get_successor_id(&connections_info.backend, id);
         let predecessor_id = ConnectionInfoDict::get_predecessor_id(&connections_info.backend, id);
+
+        let expected_queue = VecDeque::new();
 
         // Leader starts as first instance of backend list
         let leader_id = connections_info.backend[0].id;
@@ -190,7 +199,8 @@ impl ReplicaManager {
                 predecessor_id: predecessor_id,
                 successor_id: successor_id,
                 predecessor_listener: None,
-                leader_id
+                leader_id,
+                expected_queue,
             },
             ReplicaHandle { cmd_tx },
         )
@@ -199,40 +209,33 @@ impl ReplicaManager {
     /// Parse msg and send to appropriate manager
     pub async fn handle_replica_msg(&mut self, msg: String) -> io::Result<()> {
         let msg: String = msg.trim().to_string();
-        
+
         if msg.starts_with('/') {
             let mut cmd_args = msg.splitn(2, ' ');
-    
+
             // unwrap: we have guaranteed non-zero string length already
             match cmd_args.next().unwrap() {
                 "/all_pixels" => match cmd_args.next() {
-                    Some(pixels) => {
-                        self.handle_all_pixels_msg(pixels.to_string()).await
-                    }
+                    Some(pixels) => self.handle_all_pixels_msg(pixels.to_string()).await,
                     None => {
                         log::info!("No pixels provided to all pixels update");
                     }
-                }
+                },
                 // '/election election/leader id'
                 "/election" => match cmd_args.next() {
-                    Some(id) => {
-                        self.handle_election_msg(id.to_string()).await?
-                    }
+                    Some(id) => self.handle_election_msg(id.to_string()).await?,
                     None => {
                         log::info!("No ID provided for election");
                     }
-                }
+                },
 
                 "/disconnect" => match cmd_args.next() {
-                    Some(id) => {
-                        self.handle_disconnect_msg(id.to_string()).await?
-                    }
+                    Some(id) => self.handle_disconnect_msg(id.to_string()).await?,
                     None => {
                         log::info!("No ID provided for disconnect");
                     }
-                }
-                
-    
+                },
+
                 _ => {
                     log::info!("Unknown command {}", msg);
                 }
@@ -240,25 +243,36 @@ impl ReplicaManager {
         } else {
             self.handle_pixel_msg(msg).await;
         }
-        return Ok(())
+        return Ok(());
     }
 
     /// Normal pixel update, add it to db
     /// Really these should return errors too, but to lazy to box
     pub async fn handle_pixel_msg(&mut self, msg: String) {
         if self.is_primary {
-            // We already updated our database, do nothing
+            let expected = self.expected_queue.pop_front();
+            match expected {
+                None => log::warn!("Received unexpected pixel message: {}", msg),
+                Some(expected) => {
+                    if expected == msg {
+                        log::info!("Validated expected pixel message: {}", msg);
+                        self.send_replicated_to_ws(msg).await;
+                    } else {
+                        log::info!("Invalid pixel message: {}, expected: {}", msg, expected);
+                    }
+                }
+            }
             return;
         }
-        log::info!("Pixel update received {}", msg);
+        log::info!("Pixel update received: {}", msg);
         let db = self.db.get().await.unwrap();
         Pixel::insert(db, msg.clone()).await.unwrap();
 
         if !self.is_primary {
-            log::info!("Replica sent to successor {}", msg);
+            log::info!("Sent message to successor: {}", msg);
             self.send_successor(msg.as_bytes()).await.unwrap();
         } else {
-            log::info!("Ignored msg {}", msg);
+            log::info!("Ignored message: {}", msg);
         }
     }
 
@@ -269,12 +283,12 @@ impl ReplicaManager {
             // We already updated our database, do nothing
             return;
         }
-        log::info!("All pixels update received {}", msg);
+        log::info!("All pixels update received: {}", msg);
         let db = self.db.get().await.unwrap();
         Pixel::update_all(db, &msg).await.unwrap();
 
         if !self.is_primary {
-            log::info!("Replica sent to successor {}", msg);
+            log::info!("Sent message to successor: {}", msg);
             let pixels_str = format!("/all_pixels {}", msg);
             self.send_successor(pixels_str.as_bytes()).await.unwrap();
         } else {
@@ -291,7 +305,7 @@ impl ReplicaManager {
 
     /// We can do elections here
     pub async fn handle_election_msg(&mut self, msg: String) -> io::Result<()> {
-        log::info!("Election msg received {}", msg);
+        log::info!("Election message received: {}", msg);
         let mut cmd_args = msg.splitn(2, ' ');
         let election_type = match cmd_args.next() {
             Some(msg) => msg,
@@ -304,7 +318,7 @@ impl ReplicaManager {
             Some(id) => match id.parse::<u16>() {
                 Ok(val) => val,
                 Err(e) => {
-                    log::error!("Election error {}", e);
+                    log::error!("Election error: {}", e);
                     0
                 }
             },
@@ -316,12 +330,12 @@ impl ReplicaManager {
 
         if election_type == "leader" {
             self.election_running = false;
-            log::info!("New leader elected {}", id);
+            log::info!("New leader elected: {}", id);
             self.leader_id = id;
             if id != self.id {
                 self.is_primary = false;
                 let election_message = format!("/election leader {}", id);
-                log::info!("Election sending {}...", election_message);
+                log::info!("Election sending: {}...", election_message);
                 self.send_successor(election_message.as_bytes()).await?
             } else {
                 log::info!("Election we are the primary");
@@ -329,52 +343,67 @@ impl ReplicaManager {
                 // let the websocket sessions know
                 self.send_primary_to_ws().await;
             }
-         } else if election_type == "election" {
+        } else if election_type == "election" {
             if id > self.id {
                 let election_message = format!("/election election {}", id);
-                log::info!("Election sending {}...", election_message);
+                log::info!("Election sending: {}...", election_message);
                 self.send_successor(election_message.as_bytes()).await?
             }
             if id < self.id && !self.election_running {
                 self.election_running = true;
                 let election_message = format!("/election election {}", self.id);
-                log::info!("Election sending {}...", election_message);
+                log::info!("Election sending: {}...", election_message);
                 self.send_successor(election_message.as_bytes()).await?
             }
             if id == self.id {
                 let election_message = format!("/election leader {}", self.id);
-                log::info!("Election sending {}...", election_message);
+                log::info!("Election sending: {}...", election_message);
                 self.send_successor(election_message.as_bytes()).await?
             }
         } else {
-            log::error!("Election error unrecognized election type: {}", election_type);
+            log::error!(
+                "Election error unrecognized election type: {}",
+                election_type
+            );
         }
-        return Ok(())
-
+        return Ok(());
     }
 
     /// Received a disconnect message. If its our successor get a new connection
     pub async fn handle_disconnect_msg(&mut self, msg: String) -> io::Result<()> {
-        log::info!("Disconnect msg received {}", msg);
+        log::info!("Disconnect message received: {}", msg);
 
         // Get id that disconnected
         let id = match msg.parse::<u16>() {
             Ok(val) => val,
             Err(e) => {
-                log::error!("Disconnect parse error {} using value {}", e, self.successor_id);
+                log::error!(
+                    "Disconnect parse error: {} using value :{}",
+                    e,
+                    self.successor_id
+                );
                 self.successor_id
             }
         };
-        
+
         ConnectionInfoDict::set_active(&mut self.connections_info.backend, id, false);
 
-
         if id == self.successor_id {
-            let new_id = ConnectionInfoDict::get_successor_id(&self.connections_info.backend, self.id);
-            log::info!("Found new successor attempting to establish connection. id: {}", new_id);
+            let new_id =
+                ConnectionInfoDict::get_successor_id(&self.connections_info.backend, self.id);
+            log::info!(
+                "Found new successor attempting to establish connection. id: {}",
+                new_id
+            );
             self.successor_id = new_id;
-            log::info!("New successor id {}", self.predecessor_id);
-            self.successor_stream = Some(TcpStream::connect(ConnectionInfoDict::get_socket_addr(&self.connections_info.backend, new_id)).await?);
+            log::info!("New successor id: {}", self.predecessor_id);
+            self.successor_stream = Some(
+                TcpStream::connect(ConnectionInfoDict::get_socket_addr(
+                    &self.connections_info.backend,
+                    new_id,
+                ))
+                .await?,
+            );
             log::info!("Connected");
 
             // Either this one or the other one needs to start an election
@@ -382,8 +411,9 @@ impl ReplicaManager {
             if id == self.leader_id {
                 self.initiate_election().await?;
             }
-            return Ok(())
-        } else { // Forward
+            return Ok(());
+        } else {
+            // Forward
             let disconnect_msg = format!("/disconnect {}", id);
             self.send_successor(disconnect_msg.as_bytes()).await
         }
@@ -416,24 +446,36 @@ impl ReplicaManager {
             self.predecessor_listener = Some(listener);
         } else if id == 1 {
             let listener = TcpListener::bind(my_addr).await?;
-            log::info!("Listening on  {}", my_addr.port());
+            log::info!("Listening on: {}", my_addr.port());
 
-            log::info!("if: Connecting to successor port: {}...", predecessor_addr.port());
+            log::info!(
+                "if: Connecting to successor port: {}...",
+                predecessor_addr.port()
+            );
             predecessor_stream = TcpStream::connect(predecessor_addr).await?;
 
-            log::info!("if: Waiting for predecessor port: {}", successor_addr.port());
+            log::info!(
+                "if: Waiting for predecessor port: {}",
+                successor_addr.port()
+            );
             (successor_stream, _) = listener.accept().await?;
 
             self.predecessor_listener = Some(listener);
-
-        } else { // Last replica
+        } else {
+            // Last replica
             let listener = TcpListener::bind(my_addr).await?;
-            log::info!("Listening on  {}", my_addr.port());
+            log::info!("Listening on: {}", my_addr.port());
 
-            log::info!("if: Connecting to successor port: {}...", successor_addr.port());
+            log::info!(
+                "if: Connecting to successor port: {}...",
+                successor_addr.port()
+            );
             successor_stream = TcpStream::connect(successor_addr).await?;
 
-            log::info!("if: Connecting to predecessor port: {}...", predecessor_addr.port());
+            log::info!(
+                "if: Connecting to predecessor port: {}...",
+                predecessor_addr.port()
+            );
             predecessor_stream = TcpStream::connect(predecessor_addr).await?;
 
             self.predecessor_listener = Some(listener);
@@ -441,7 +483,7 @@ impl ReplicaManager {
         self.successor_stream = Some(successor_stream);
 
         log::info!("Connected!");
-        return Ok(predecessor_stream)
+        return Ok(predecessor_stream);
     }
 
     /// Send a message to the successor
@@ -460,15 +502,20 @@ impl ReplicaManager {
     /// Return false if it is no longer possible to recover replica manager process
     pub async fn handle_predecessor_disconnect(&mut self) -> io::Result<TcpStream> {
         log::info!("Attempting to connect to new predecessor");
-        ConnectionInfoDict::set_active(&mut self.connections_info.backend, self.predecessor_id, false);
+        ConnectionInfoDict::set_active(
+            &mut self.connections_info.backend,
+            self.predecessor_id,
+            false,
+        );
         if ConnectionInfoDict::get_active_replicas(&self.connections_info.backend) == 1 {
             log::error!("We cannot recover replica manager proc");
-            return Err(io::ErrorKind::Other.into())
+            return Err(io::ErrorKind::Other.into());
         }
 
         let msg = format!("/disconnect {}", self.predecessor_id);
         self.send_successor(msg.as_bytes()).await?;
-        self.predecessor_id = ConnectionInfoDict::get_predecessor_id(&mut self.connections_info.backend, self.id);
+        self.predecessor_id =
+            ConnectionInfoDict::get_predecessor_id(&mut self.connections_info.backend, self.id);
         log::info!("New predecessor id {}", self.predecessor_id);
 
         match self.predecessor_listener.as_mut() {
@@ -479,7 +526,8 @@ impl ReplicaManager {
                 return Ok(predecessor_stream);
             }
             None => {
-                let my_addr = ConnectionInfoDict::get_socket_addr(&self.connections_info.backend, self.id);
+                let my_addr =
+                    ConnectionInfoDict::get_socket_addr(&self.connections_info.backend, self.id);
                 let listener = TcpListener::bind(my_addr).await?;
                 let (predecessor_stream, _) = listener.accept().await?;
                 self.predecessor_listener = Some(listener);
@@ -498,6 +546,15 @@ impl ReplicaManager {
         }
     }
 
+    /// Let all ws sessions know that the message was successfully applied to all replicas
+    async fn send_replicated_to_ws(&self, msg: String) {
+        let msg = format!("replicated: {}", msg);
+
+        for (id, session) in &self.sessions {
+            log::info!("Sending replicated to session {}", id);
+            let _ = session.send(msg.clone());
+        }
+    }
 
     /// Register new session and assign unique ID to this session. This is to talk to the other thread
     async fn register_session(&mut self, tx: mpsc::UnboundedSender<Msg>) -> usize {
@@ -518,7 +575,11 @@ impl ReplicaManager {
     }
 
     /// Processing of the replica stream logic after connection has been established
-    pub async fn replica_stream_process(&mut self, cmd_rx: &mut UnboundedReceiver<Command>,predecessor_stream: &TcpStream) -> io::Result<()> {
+    pub async fn replica_stream_process(
+        &mut self,
+        cmd_rx: &mut UnboundedReceiver<Command>,
+        predecessor_stream: &TcpStream,
+    ) -> io::Result<()> {
         loop {
             let msg_rx = cmd_rx.recv();
             pin!(msg_rx);
@@ -529,20 +590,22 @@ impl ReplicaManager {
 
             match select(msg_rx, stream_ready).await {
                 // From Local
-                Either::Left((Some(cmd), _)) => {
-                    match cmd {
-                        Command::Connect { conn_tx, res_tx } => {
-                            let conn_id = self.register_session(conn_tx).await;
-                            let _ = res_tx.send(conn_id);
+                Either::Left((Some(cmd), _)) => match cmd {
+                    Command::Connect { conn_tx, res_tx } => {
+                        let conn_id = self.register_session(conn_tx).await;
+                        let _ = res_tx.send(conn_id);
+                    }
+                    Command::Message { msg, res_tx } => {
+                        log::info!("Message received: {}", msg);
+                        if self.is_primary {
+                            log::info!("Added message to expected message queue");
+                            self.expected_queue.push_back(msg.clone());
                         }
-                        Command::Message { msg, res_tx } => {
-                            log::info!("Msg received {}", msg);
-                            self.send_successor(msg.as_bytes()).await?;
-                            let _ = res_tx.send(());
-                        }
-                        Command::Disconnect { conn } => {
-                            self.unregister_session(conn).await;
-                        }
+                        self.send_successor(msg.as_bytes()).await?;
+                        let _ = res_tx.send(());
+                    }
+                    Command::Disconnect { conn } => {
+                        self.unregister_session(conn).await;
                     }
                 },
                 // From Sockets
@@ -553,8 +616,10 @@ impl ReplicaManager {
                                 Ok(n) => {
                                     // If the predecessor_stream's proc crashes we get some issues
                                     if n == 0 {
-                                        log::error!("Err received size 0 likely predecessor crashed");
-                                        return Err(io::ErrorKind::WriteZero.into())
+                                        log::error!(
+                                            "Err received size 0 likely predecessor crashed"
+                                        );
+                                        return Err(io::ErrorKind::WriteZero.into());
                                     }
 
                                     predecessor_buf.truncate(n);
@@ -562,12 +627,15 @@ impl ReplicaManager {
                                         Ok(v) => v,
                                         Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
                                     };
-                                    log::info!("Received msg from socket {}", predecessor_msg);
-                                    self.handle_replica_msg(predecessor_msg.to_string()).await?;                                    
+                                    log::info!("Received message from socket: {}", predecessor_msg);
+                                    self.handle_replica_msg(predecessor_msg.to_string()).await?;
                                 }
                                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                                     // This gets called after every update idk why
-                                    log::error!("Err would block (Don't worry about this I think) {}", e);
+                                    log::error!(
+                                        "Err would block (Don't worry about this I think) {}",
+                                        e
+                                    );
                                 }
                                 Err(e) => {
                                     log::error!("Err try_read {}", e);
@@ -580,7 +648,7 @@ impl ReplicaManager {
                             break;
                         }
                     }
-                },
+                }
 
                 Either::Left((None, _)) => {
                     break;
@@ -588,7 +656,7 @@ impl ReplicaManager {
             }
         }
 
-        return Ok(())
+        return Ok(());
     }
 
     /// Send a message to the predecessor
@@ -604,7 +672,6 @@ impl ReplicaManager {
     // }
 
     pub async fn run(mut self, mut cmd_rx: UnboundedReceiver<Command>) -> io::Result<()> {
-
         // We should get a connect from the ws thread
         // log::error!("Waiting for connect from ws...");
         // match cmd_rx.recv().await {
@@ -666,7 +733,10 @@ impl ReplicaManager {
         }
 
         loop {
-            match self.replica_stream_process(&mut cmd_rx, &predecessor_stream).await {
+            match self
+                .replica_stream_process(&mut cmd_rx, &predecessor_stream)
+                .await
+            {
                 Ok(_) => {
                     log::info!("Exited gracefully");
                     break;
@@ -681,7 +751,6 @@ impl ReplicaManager {
                             break;
                         }
                     }
-                    
                 }
                 Err(ref e) => {
                     log::info!("Received error {} attempting to exit", e);
@@ -690,7 +759,7 @@ impl ReplicaManager {
             }
         }
 
-        return Ok(())
+        return Ok(());
     }
 }
 
