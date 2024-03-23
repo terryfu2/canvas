@@ -114,12 +114,12 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
   };
 
   const handleConfirm = (color) => {
-
+    /*
     if(clickedPixel.color == 'white' && color == '#ffffff' || clickedPixel.color == color){
         setDialogCoordinates(null);
         setClickedPixel(null);
         return;
-    }
+    }*/
     setConfirmClicked(true);
 
     const canvas = canvasRef.current;

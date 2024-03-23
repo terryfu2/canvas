@@ -118,7 +118,7 @@ impl ConnectionInfoDict {
 }
 
 // TODO calc max size or find it experimentally
-const REPLICA_BUFFER_SIZE: usize = 102400;
+const REPLICA_BUFFER_SIZE: usize = 10240000;
 
 fn connections_file() -> String {
     std::env::var("CONNECTIONS_FILE").unwrap_or_else(|_| "../../process_connections.json".into())
