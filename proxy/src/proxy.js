@@ -45,6 +45,7 @@ class BackendInstance {
     onPrimaryMessage() {
         console.log(`BACKEND ${this.id}::We are connected to the primary`);
         this.primary = true;
+
     }
 
     onSetPixel(message) {
@@ -129,6 +130,9 @@ class BackendConnection {
         if (primary == undefined) {
             console.error(`No primary found!`);
             return;
+        }
+        else{
+            console.log("Primary id: "+ primary.id);
         }
         primary.get_canvas(clientSocket);
     }
