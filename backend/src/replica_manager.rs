@@ -13,11 +13,13 @@ use std::io::BufReader;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::str;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::pin;
+use tokio::runtime::Runtime;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::{mpsc, oneshot};
 
@@ -161,7 +163,7 @@ pub struct ReplicaManager {
     predecessor_listener: Option<TcpListener>,
     leader_id: u16,
 
-    expected_queue: VecDeque<String>,
+    expected_queue: Arc<Mutex<VecDeque<String>>>,
 }
 
 impl ReplicaManager {
@@ -182,7 +184,7 @@ impl ReplicaManager {
         let successor_id = ConnectionInfoDict::get_successor_id(&connections_info.backend, id);
         let predecessor_id = ConnectionInfoDict::get_predecessor_id(&connections_info.backend, id);
 
-        let expected_queue = VecDeque::new();
+        let expected_queue = Arc::new(Mutex::new(VecDeque::new()));
 
         // Leader starts as first instance of backend list
         let leader_id = connections_info.backend[0].id;
@@ -253,7 +255,7 @@ impl ReplicaManager {
     /// Really these should return errors too, but to lazy to box
     pub async fn handle_pixel_msg(&mut self, msg: String) {
         if self.is_primary {
-            let expected = self.expected_queue.pop_front();
+            let expected = self.expected_queue.lock().unwrap().pop_front();
             match expected {
                 None => log::warn!("Received unexpected pixel message: {}", msg),
                 Some(expected) => {
@@ -559,16 +561,6 @@ impl ReplicaManager {
         }
     }
 
-    /// Let all ws sessions know that the message was successfully applied to all replicas
-    async fn send_unreplicated_to_ws(&self, msg: String) {
-        let msg = format!("unreplicated: {}", msg);
-
-        for (id, session) in &self.sessions {
-            log::info!("Sending unreplicated to session {}", id);
-            let _ = session.send(msg.clone());
-        }
-    }
-
     /// Register new session and assign unique ID to this session. This is to talk to the other thread
     async fn register_session(&mut self, tx: mpsc::UnboundedSender<Msg>) -> usize {
         // register session with random connection ID
@@ -616,20 +608,37 @@ impl ReplicaManager {
                                 // We do this by adding the message to an expected message queue
                                 // 5 seconds later we check if the expected message queue no longer contains
                                 // that message
-                                self.expected_queue.push_back(msg.clone());
+                                self.expected_queue.lock().unwrap().push_back(msg.clone());
                                 log::info!("Added message to expected message queue");
 
-                                // thread::sleep(Duration::from_secs(5));
+                                // If you have the displeasure of having to read the following 20 lines, I apologize in advance
+                                let msg_clone = msg.clone();
+                                let queue_clone = Arc::clone(&self.expected_queue);
+                                let sessions_clone = self.sessions.clone();
+                                thread::spawn(move || {
+                                    // Wait for 5 seconds
+                                    thread::sleep(Duration::from_secs(5));
 
-                                // if let Some(expected) = self.expected_queue.front() {
-                                //     if expected.as_str() == msg {
-                                //         log::info!(
-                                //             "Expected message was not received after 5 seconds"
-                                //         );
-                                //         self.expected_queue.pop_front();
-                                //         self.send_unreplicated_to_ws(msg);
-                                //     }
-                                // }
+                                    // Check if the first item in the queue has changed
+                                    let mut queue = queue_clone.lock().unwrap();
+                                    if let Some(expected) = queue.front() {
+                                        if expected.as_str() == msg_clone {
+                                            log::info!(
+                                                "Expected message was not received after 5 seconds"
+                                            );
+                                            queue.pop_front();
+
+                                            let ws_msg = format!("unreplicated: {}", msg_clone);
+                                            for (id, session) in sessions_clone {
+                                                log::info!(
+                                                    "Sending unreplicated to session {}",
+                                                    id
+                                                );
+                                                let _ = session.send(ws_msg.clone());
+                                            }
+                                        }
+                                    }
+                                });
                             }
                             self.send_successor(msg.as_bytes()).await?;
                             let _ = res_tx.send(());
