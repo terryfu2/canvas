@@ -4,7 +4,7 @@ import { MapInteractionCSS } from "react-map-interaction";
 import PixelPopUp from "./common/PixelPopUp";
 import Footer from "./footer/Footer";
 
-const Canvas = ({ setPixel, width, height, pixels }) => {
+const Canvas = ({ setPixel,isError, width, height, pixels }) => {
   const canvasRef = useRef(null); 
 
   const [dialogCoordinates, setDialogCoordinates] = useState(null);
@@ -136,7 +136,7 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
 
     setDialogCoordinates(null);
     setClickedPixel(null);
-
+    isError();
     if(timeoutEnabled){
         setTimeout(() => {
             setConfirmClicked(false);
@@ -171,8 +171,6 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
 
     }
   }
-
-
 
   return (
     <div>
