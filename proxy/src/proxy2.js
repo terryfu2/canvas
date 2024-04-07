@@ -48,7 +48,8 @@ async function checkServerHealth() {
 
 async function checkPrimaryServerHealth() {
     try {
-        console.log("health check paused:" , healthChecksPaused);
+        console.log("\nhealth check paused:" , healthChecksPaused);
+        // stop health checks because primary proxy is about to be replaced
         if (healthChecksPaused) {
             console.log ('Backup proxy not ready. Skipping health checks...');
             return;
@@ -60,8 +61,9 @@ async function checkPrimaryServerHealth() {
         if (isHealthy) {
             console.log('Primary proxy server is healthy');
         } else {
+
             healthChecksPaused = true;
-            console.log('Primary proxy server is unhealthy. Replacing with backup proxy server...');
+            console.log('Primary proxy server is unhealthy. Replacing with proxy server 2...');
            
             // This is the server that clients will connect to
             const clientServer = new WebSocket.Server({ port: 3001 });
@@ -71,28 +73,35 @@ async function checkPrimaryServerHealth() {
 
             clientServer.on("connection", (clientSocket) => {
                 
-                console.log("Client connected to backup proxy");
+                console.log("Client connected to proxy 2");
 
-                // stop health checks after connecting to backup as there is no other healthy proxy
+                // stop health checks after proxy 2 is now primary
                 // to be pinging (checking health status of)
-                console.log("Stopping health checks"); 
+                console.log("Stopping health checks of proxy 1"); 
                 clearInterval(interval);
 
                 // Proxy messages from client to backend
                 clientSocket.on("message", (message) => {
                     try {
                         const parsedMessage = JSON.parse(message);
-                        console.log("Received message from client:", parsedMessage);
+                        console.log("Received message:", parsedMessage);
                         switch (parsedMessage.command) {
                         // Get the current state of the canvas
                         // Used on the initial load for a client
                         case "get_pixels":
-                        backendClient.get_canvas(clientSocket)
-                        break;
+                            console.log("Received message from client:", parsedMessage);
+                            backendClient.get_canvas(clientSocket)
+                            break;
                         // Set a specific pixel
                         case "set_pixel":
-                        backendClient.send_ws(JSON.stringify(parsedMessage.payload));
-                        break;
+                            console.log("Received message from client:", parsedMessage);
+                            backendClient.send_ws(JSON.stringify(parsedMessage.payload));
+                            break;
+                        case "ping":
+                        // receive ping from backup proxy and respond with pong (for health checking purposes)
+                            console.log("Received message from proxy 1:", parsedMessage);
+                            clientSocket.send(JSON.stringify({ command: 'pong' }));
+                            break;
                         default:
                         console.log("Invalid command:", parsedMessage.command);
                     }

@@ -1,204 +1,127 @@
 
-//const BackendConnection = require('./proxy_classes');
+const BackendConnection = require('./proxy_classes');
 const WebSocket = require("ws");
-const http = require("http");
 
-// single backend connection
-class BackendInstance {
-    constructor(address, port, id, primary) {
-        console.log(`Connecting to id ${id} at ${address}:${port}`)
-        this.address = address;
-        this.port = port;
-        this.primary = primary
-        this.id = id; // Going to be used for debugging
-        this.backoffTime = 5000;
-        this.reconnectAttempts = 0;
+// health checks are sent to current primary proxy to check if it's alive
+// health checks are stopped for current proxy if they are the primary proxy
+let healthChecksPaused = false; // flag for pausing health checks of primary proxy
 
-        this.connect()
-    }
+async function checkServerHealth() {
 
-    onClose() {
-        this.primary = false;
-        // TODO reimplement this, but have it work
-        // Attempt to reconnect after timeout
-        // this.reconnectAttempts++;
-        // setTimeout(this.connect, this.reconnectAttempts*this.backoffTime);
-    }
-
-    onMessage(message) {
+    console.log ("Running health check...");
+    return new Promise ( (resolve, reject) => {
         try {
-            console.log(`BACKEND ${this.id}::Received message from backend:`, message.toString());
-            if (message.toString() === `primary`) { // Not the smartest message I know
-                console.log(`BACKEND ${this.id}::Received message from backend:`, message);
-                this.onPrimaryMessage();
-            } else {
-                const parsedMessage = JSON.parse(message);
-                console.log(`BACKEND ${this.id}::Received parsed message from backend:`, parsedMessage);
-                this.onSetPixel(parsedMessage);
-            }
-        } catch (error) {
-            console.error(`BACKEND ${this.id}::Error parsing message:`, error);
-        }
-    }
+            // connect through websocket to primary proxy server
+           const primaryProxyWs = new WebSocket('ws://localhost:3001')
+           primaryProxyWs.on('open', function open() {
+               console.log('Connected to primary proxy.');
 
-    onPrimaryMessage() {
-        console.log(`BACKEND ${this.id}::We are connected to the primary`);
-        this.primary = true;
-        console.log("send primary to clinets");
-        clientServer.clients.forEach((clientSocket) => {
-            clientSocket.send(
-                JSON.stringify({
-                command: "primary_id",
-                payload: this.id,
-                })
-            );
-        });
-    }
+               // send ping to proxy
+               primaryProxyWs.send(JSON.stringify({ command: 'ping' }));
+           });
+           
+           // if recieves pong from primary server it is healthy and can continue to use primary
+           primaryProxyWs.on('message', (message) => {
+               try {
+                   const parsedMessage = JSON.parse(message);
+                   console.log("Received message from client (primary proxy):", parsedMessage);
+                   if (parsedMessage.command === 'pong') {
+                       resolve(true);
+                   }
+           
+               } catch (error) {
+                   console.error('Error occured while reading message from primary proxy:', error);
+                   resolve(false);
+               }
+           });
 
-    onSetPixel(message) {
-        clientServer.clients.forEach((clientSocket) => {
-            console.log(`Sending pixel update`)
-            clientSocket.send(
-                JSON.stringify({
-                command: "set_pixel",
-                payload: message,
-                })
-            );
-        });
-    }
-
-    connect() {
-        this.ws_connection = new WebSocket(`ws://${this.address}:${this.port}/ws`)
-
-        this.ws_connection.on("open", () => {
-            console.log(`BACKEND ${this.id}::Connected to backend`);
-            this.reconnectAttempts = 0;
-          });
-    
-        this.ws_connection.on("close", () => {
-            console.log(`BACKEND ${this.id}::Connection to backend closed`);
-            this.onClose();
-        });
-    
-        this.ws_connection.on("error", (error) => {
-            console.error(`BACKEND ${this.id}::Error connecting to backend:`, error.message);
-            // Change this to onError
-            this.onClose();
-        });
-    
-        this.ws_connection.on("message", (message) => {
-            this.onMessage(message);
-        });
-    }
-
-    get_canvas(clientSocket) {
-        http
-            .get(`http://${this.address}:${this.port}/canvas`, (res) => {
-              let data = "";
-              res.on("data", (chunk) => {
-                data += chunk;
-              });
-              res.on("end", () => {
-                clientSocket.send(data);
-              });
-            })
-            .on("error", (error) => {
-              console.error(`BACKEND ${id}::Error making request to backend:`, error.message);
-            });
-    }
-
-    send_ws(msg) {
-        this.ws_connection.send(msg);
-    }
-
-}
-
-// Connects to all backends and keeps track of primary
-class BackendConnection {
-    constructor() {
-        var fs = require('fs');
-
-        let connection_info = JSON.parse(fs.readFileSync('../../process_connections.json', 'utf8'));
-
-        this.backendInstances = []
-
-        connection_info["backend"].forEach( (connection) => {
-            let backendConnection = new BackendInstance(connection.public_address, connection.public_port, connection.id, false)
-            this.backendInstances.push(backendConnection)
-        })
-        this.backendInstances[0].primary = true;
-    }
-
-    find_primary() {
-        return this.backendInstances.find((instance) => instance.primary)
-    }
-
-    get_canvas(clientSocket) {
-        let primary = this.find_primary();
-        if (primary == undefined) {
-            console.error(`No primary found!`);
-            return;
-        }
-        else{
-            console.log("Primary id: "+ primary.id);
-            console.log("send primary to clinets");
-            clientSocket.send(
-                JSON.stringify({
-                command: "primary_id",
-                payload: primary.id,
-                })
-            );
-
-        }
-        primary.get_canvas(clientSocket);
-    }
-
-    send_ws(msg) {
-        let primary = this.find_primary();
-        if (primary == undefined) {
-            console.error(`No primary found!`);
-            return;
-        }
-        primary.send_ws(msg);
-    }
+           // if unable to connect to primary proxy server, it is unhealthy
+           primaryProxyWs.on('error', (error) => {
+                console.error('Error occured while trying to connect to websocket of primary proxy server:', error);
+                resolve(false);
+           });
+       } catch (error) {
+           console.error('Error while checking server health:', error);
+           resolve(false);
+       }
+    });
+ 
 }
 
 
-// This is the server that clients will connect to
-const clientServer = new WebSocket.Server({ port: 3001 });
-
-// Manages connections to the backends
-const backendClient = new BackendConnection()
-
-clientServer.on("connection", (clientSocket) => {
-
-  console.log("Client connected");
-
-  // Proxy messages from client to backend
-  clientSocket.on("message", (message) => {
+async function checkPrimaryServerHealth() {
     try {
-      const parsedMessage = JSON.parse(message);
-      console.log("Received message from client:", parsedMessage);
-      switch (parsedMessage.command) {
-        // Get the current state of the canvas
-        // Used on the initial load for a client
-        case "get_pixels":
-          backendClient.get_canvas(clientSocket)
-          break;
-        // Set a specific pixel
-        case "set_pixel":
-          backendClient.send_ws(JSON.stringify(parsedMessage.payload));
-          break;
-        case "ping":
-            // receive ping from backup proxy and respond with pong (for health checking purposes)
-            clientSocket.send(JSON.stringify({ command: 'pong' }));
-            break;
-        default:
-          console.log("Invalid command:", parsedMessage.command);
-      }
-    } catch (error) {
-      console.error("Error parsing message:", error);
-    }
-  });
-});
+        console.log("\nhealth check paused:" , healthChecksPaused);
+        // stop health checks because primary proxy is about to be replaced
+        if (healthChecksPaused) {
+            console.log ('Backup proxy not ready. Skipping health checks...');
+            return;
+        }
 
+        const isHealthy = await checkServerHealth();
+        console.log("Primary proxy is healthy:", isHealthy);
+
+        if (isHealthy) {
+            console.log('Primary proxy server is healthy');
+        } else {
+            healthChecksPaused = true;
+            console.log('Primary proxy server is unhealthy. Replacing with proxy server 1...');
+           
+            // This is the server that clients will connect to
+            const clientServer = new WebSocket.Server({ port: 3001 });
+            const backendClient = new BackendConnection();
+
+            // TODO: reload page when trying to connect to backup proxy server
+
+            clientServer.on("connection", (clientSocket) => {
+                
+                console.log("Client connected to proxy 1");
+
+                // stop health checks after proxy 1 is now primary
+                // to be pinging (checking health status of)
+                console.log("Stopping health checks of proxy 2"); 
+                clearInterval(interval);
+
+                // Proxy messages from client to backend
+                clientSocket.on("message", (message) => {
+                    try {
+                        const parsedMessage = JSON.parse(message);
+                        console.log("Received message:", parsedMessage);
+                        switch (parsedMessage.command) {
+                        // Get the current state of the canvas
+                        // Used on the initial load for a client
+                        case "get_pixels":
+                            console.log("Received message from client:", parsedMessage);
+                            backendClient.get_canvas(clientSocket)
+                            break;
+                        // Set a specific pixel
+                        case "set_pixel":
+                            console.log("Received message from client:", parsedMessage);
+                            backendClient.send_ws(JSON.stringify(parsedMessage.payload));
+                            break;
+                        case "ping":
+                        // receive ping from backup proxy and respond with pong (for health checking purposes)
+                            console.log("Received message from proxy 2:", parsedMessage);
+                            clientSocket.send(JSON.stringify({ command: 'pong' }));
+                            break;
+                        default:
+                        console.log("Invalid command:", parsedMessage.command);
+                    }
+                    } catch (error) {
+                    console.error("Error parsing message:", error);
+                    }
+                });            
+            });
+
+
+
+        }
+    } catch (error) {
+        console.error('Error occurred while checking primary server health:', error);
+    }
+}
+
+console.log ('Initial value of health check paused:', healthChecksPaused);
+// Poll the primary proxy server health endpoint at regular intervals
+const healthCheckInterval = 5000; // Interval in milliseconds
+const interval = setInterval(checkPrimaryServerHealth, healthCheckInterval);
