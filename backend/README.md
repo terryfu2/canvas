@@ -70,3 +70,7 @@ cargo run --config ./.cargo/config3.toml
 2. Connect to the database postgres `\c postgres`.
 3. View the data in canvas table `SELECT * FROM public.canvas;`.
 
+# Run servers on multiple machines
+1. Go to the terminal and find ip address of the machine by running `ipconfig getifaddr en0`
+2. In `process_connections.json` replace each address field with the ip address of the machine running the server. Modify this file for all machines.
+

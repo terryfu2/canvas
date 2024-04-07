@@ -99,7 +99,7 @@ async function checkPrimaryServerHealth() {
                             break;
                         case "ping":
                         // receive ping from backup proxy and respond with pong (for health checking purposes)
-                            console.log("Received message from primary server (proxy 1):", parsedMessage);
+                            console.log("Received message from proxy 1:", parsedMessage);
                             clientSocket.send(JSON.stringify({ command: 'pong' }));
                             break;
                         default:

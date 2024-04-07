@@ -554,9 +554,10 @@ impl ReplicaManager {
     /// Let all ws sessions know that the message was successfully applied to all replicas
     async fn send_replicated_to_ws(&self, msg: String) {
         let msg = format!("replicated: {}", msg);
-
+        
         for (id, session) in &self.sessions {
             log::info!("Sending replicated to session {}", id);
+            print!("Sending replicated to session {}", id);
             let _ = session.send(msg.clone());
         }
     }

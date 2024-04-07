@@ -4,7 +4,7 @@ import { MapInteractionCSS } from "react-map-interaction";
 import PixelPopUp from "./common/PixelPopUp";
 import Footer from "./footer/Footer";
 
-const Canvas = ({ setPixel, width, height, pixels }) => {
+const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
   const canvasRef = useRef(null); 
 
   const [dialogCoordinates, setDialogCoordinates] = useState(null);
@@ -16,16 +16,22 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
   const [canClickPixel,setCanClickPixel] = useState(true);
   const [isMouseMoved,setIsMouseMoved] = useState(false);
 
+  const [primaryId,setPrimaryId] = useState(null);
+
   const [mapState, setMapState] = useState({
     scale: 0.8,
     translation: { x: 25, y: 25 },
   });
 
+  useEffect(() => {
+    setPrimaryId(prevPrimaryId => primary);
+}, [primary]);
+
   // Redraw the canvas when the pixel data changes
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-
+    
     ctx.clearRect(0, 0, width, height);
 
     pixels.forEach(({ x, y, color }) => {
@@ -136,7 +142,7 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
 
     setDialogCoordinates(null);
     setClickedPixel(null);
-
+    isError();
     if(timeoutEnabled){
         setTimeout(() => {
             setConfirmClicked(false);
@@ -171,8 +177,6 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
 
     }
   }
-
-
 
   return (
     <div>
@@ -216,6 +220,7 @@ const Canvas = ({ setPixel, width, height, pixels }) => {
         x={hoveredPixel ? hoveredPixel.x : 0}
         y={hoveredPixel ? hoveredPixel.y : 0}
         sendTimeout = {handleSwitchChange}
+        primaryId = {primaryId}
       ></Footer>
     </div>
   );
