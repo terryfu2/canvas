@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {SketchPicker } from 'react-color';
 import "../../styles/button.scss"
 
+//pixel information, coords, color and color editor component
 const PixelPopUp = ({ x, y, color,onClose ,onConfirm,disabledConfirm}) => {
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [selectedColor, setSelectedColor] = useState(color);

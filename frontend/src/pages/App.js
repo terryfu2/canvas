@@ -16,7 +16,8 @@ function App() {
   const [openSuccess,setOpenSuccess] = useState(false);
   const [openError,setOpenError] = useState(false);
   const [primaryId,setPrimaryId] = useState(null);
-
+ 
+  //message to proxy
   const getPixels = useCallback(
     () =>
       sendJsonMessage({
@@ -37,7 +38,7 @@ function App() {
       }),
     [sendJsonMessage]
   );
-
+  //error popup
   const isError = () => {
     setTimeout(() => {
       setOpenSuccess(prevOpenSuccess => {
@@ -56,7 +57,7 @@ function App() {
   useEffect(() => {
     getPixels();
   }, []);
-
+  //received json message, parse accordingly
   useEffect(() => {
     if (lastJsonMessage !== null) {
      //console.log(lastJsonMessage);

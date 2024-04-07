@@ -4,6 +4,7 @@ import { MapInteractionCSS } from "react-map-interaction";
 import PixelPopUp from "./common/PixelPopUp";
 import Footer from "./footer/Footer";
 
+//canvas component, contains actual canvas, footer and dialog
 const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
   const canvasRef = useRef(null); 
 
@@ -50,8 +51,7 @@ const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
     return ((r << 16) | (g << 8) | b).toString(16);
   }
 
-
-
+  //pixel is clicked, get information
   const handleClickPixel = (event) => {
 
     if(!canClickPixel){
@@ -96,7 +96,7 @@ const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
     }
     setClickedPixel(clickedPixel);
   };
-
+  //track mouse position to update hover in footer
   const handleMouseMove = (event) => {
     setIsMouseMoved(true);
 
@@ -118,7 +118,7 @@ const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
     setDialogCoordinates(null);
     setClickedPixel(null);
   };
-
+  //send pixel updated info to proxy
   const handleConfirm = (color) => {
     /*
     if(clickedPixel.color == 'white' && color == '#ffffff' || clickedPixel.color == color){
@@ -159,6 +159,7 @@ const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
 
   };
 
+  //bad attempt at trying to fix error in mouse click being registered when dragging
   const handleDragStart = (event) =>{
 
     setIsMouseMoved(false);

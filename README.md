@@ -8,6 +8,9 @@ A distributed recreation of [r/place](https://en.wikipedia.org/wiki/R/place)
 
 ![plot](./imgs/demo.PNG)
 
+## Architecture  
+![plot](./imgs/arch.PNG)
+
 ## Setup
 
 ### Frontend

@@ -6,9 +6,9 @@ import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
 
 
-
 const label = { inputProps: { 'aria-label': 'Switch demo' } };
 
+//footer information
 function Footer({ x,y, sendTimeout,primaryId }) {
     const componentRef = useRef();
     const [timeoutEnabled, setTimeoutEnabled] = useState(false);
