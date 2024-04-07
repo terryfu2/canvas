@@ -9,13 +9,41 @@ import Alert from '@mui/material/Alert';
 import Collapse from '@mui/material/Collapse';
 
 const WS_URL = `ws://${process.env.REACT_APP_HTTP_HOST}:${process.env.REACT_APP_HTTP_PORT}/ws`;
+const MAX_RETRY_ATTEMPTS = 100; // Maximum number of retry attempts
+const RETRY_INTERVAL = 1000; // Retry interval in milliseconds
 
 function App() {
-  const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(WS_URL);
+  //const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(WS_URL);
   const [pixels, setPixels] = useState();
   const [openSuccess,setOpenSuccess] = useState(false);
   const [openError,setOpenError] = useState(false);
   const [primaryId,setPrimaryId] = useState(null);
+  const [retryAttempts, setRetryAttempts] = useState(0);
+ 
+  //auto retry coinnection to proxy if not loading, for when proxy crashes
+  const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(
+    WS_URL,
+    {
+      onOpen: () => {
+        setRetryAttempts(0); // Reset retry attempts on successful connection
+      },
+    }
+  );
+
+  const retryConnection = () => {
+    if (retryAttempts < MAX_RETRY_ATTEMPTS) {
+      setTimeout(() => {
+        setRetryAttempts((prevAttempts) => prevAttempts + 1);
+      }, RETRY_INTERVAL);
+    }
+  };
+
+  useEffect(() => {
+    if (readyState === ReadyState.CLOSED) {
+      retryConnection();
+      window.location.reload();
+    }
+  }, [readyState, retryAttempts]); 
  
   //message to proxy
   const getPixels = useCallback(
@@ -60,7 +88,7 @@ function App() {
   //received json message, parse accordingly
   useEffect(() => {
     if (lastJsonMessage !== null) {
-     //console.log(lastJsonMessage);
+     //(lastJsonMessage);
       switch (lastJsonMessage.command) {
         case "get_pixels":
           const newPixels = [];
@@ -118,6 +146,8 @@ function App() {
       }
     }
   }, [lastJsonMessage]);
+
+  
 
   if (readyState !== ReadyState.OPEN || !pixels) {
     return (

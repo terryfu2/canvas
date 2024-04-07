@@ -47,7 +47,6 @@ function Footer({ x,y, sendTimeout,primaryId }) {
             >
                 Export as PNG
             </button>*/}
-
         </div>
     );
 }
