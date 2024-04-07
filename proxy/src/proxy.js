@@ -44,7 +44,15 @@ class BackendInstance {
     onPrimaryMessage() {
         console.log(`BACKEND ${this.id}::We are connected to the primary`);
         this.primary = true;
-
+        console.log("send primary to clinets");
+        clientServer.clients.forEach((clientSocket) => {
+            clientSocket.send(
+                JSON.stringify({
+                command: "primary_id",
+                payload: this.id,
+                })
+            );
+        });
     }
 
     onSetPixel(message) {
@@ -133,6 +141,14 @@ class BackendConnection {
         }
         else{
             console.log("Primary id: "+ primary.id);
+            console.log("send primary to clinets");
+            clientSocket.send(
+                JSON.stringify({
+                command: "primary_id",
+                payload: primary.id,
+                })
+            );
+
         }
         primary.get_canvas(clientSocket);
     }

@@ -1,19 +1,29 @@
-import React, { useRef,useState } from 'react';
+import React, { useRef,useState,useEffect } from 'react';
 import { exportComponentAsPNG } from 'react-component-export-image';
 import Switch from '@mui/material/Switch';
 import { IoIosInformationCircleOutline } from "react-icons/io";
+import Tooltip from '@mui/material/Tooltip';
+import IconButton from '@mui/material/IconButton';
+
+
 
 const label = { inputProps: { 'aria-label': 'Switch demo' } };
 
-function Footer({ x,y, sendTimeout }) {
+function Footer({ x,y, sendTimeout,primaryId }) {
     const componentRef = useRef();
     const [timeoutEnabled, setTimeoutEnabled] = useState(false);
+    const [primary,setPrimary] = useState(false);
+ 
+    useEffect(() => {
+        setPrimary(prevPrimaryId => primaryId);
+    }, [primaryId]);
 
     const handleSwitchChange = () => {
         setTimeoutEnabled(!timeoutEnabled);
         sendTimeout(timeoutEnabled);
     };
 
+    
     return (
         <div style={footerStyle}>
             <h1 style={{ marginRight: 'auto' }}>canva</h1>
@@ -25,7 +35,11 @@ function Footer({ x,y, sendTimeout }) {
                 <Switch {...label} onChange={handleSwitchChange} />
             </div>
             <div style={{ marginRight: '50px', fontSize: '30px', color: 'black' }} onMouseOver={(e) => e.target.style.color = 'blue'} onMouseOut={(e) => e.target.style.color = 'black'}>
-                <IoIosInformationCircleOutline />
+                <Tooltip title={`canva.us-west${primary}.server`}>
+                    <IconButton>
+                    <IoIosInformationCircleOutline />
+                    </IconButton>
+                </Tooltip>
             </div>
             {/*<button
                 className='button-outline'
