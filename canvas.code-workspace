@@ -50,7 +50,22 @@
           "runOn": "folderOpen"
         }
       },
-
+      {
+        "label": "proxy2",
+        "type": "shell",
+        "command": "sleep 4 && cd src && npm install && node proxy2.js",
+        "options": {
+          "cwd": "${workspaceFolder:proxy}"
+        },
+        "presentation": {
+          "reveal": "silent",
+          "group": "cpsc559-frontend",
+          "panel": "dedicated"
+        },
+        "runOptions": {
+          "runOn": "folderOpen"
+        }
+      },
       {
         "label": "replica-1",
         "type": "shell",
