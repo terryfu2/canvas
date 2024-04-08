@@ -9,7 +9,6 @@ PG_HOST="localhost"
 PG_PORT="5434"
 PG_USER="postgres"
 PG_PASSWORD="<your_pass>"
-RUST_BACKTRACE="1"
 
 PRIMARY="false"
 ID="0"

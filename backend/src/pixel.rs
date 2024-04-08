@@ -43,6 +43,17 @@ impl Pixel {
             }
         }
     }
+    pub async fn update_all_vec(client: deadpool::managed::Object<Manager>, pixels: &Vec<Pixel>) -> Result<u64, Error> {
+        // Clear previous data
+        let stmt = client.prepare("TRUNCATE TABLE canvas").await.unwrap();
+        let mut result = client.execute(&stmt, &[]).await.unwrap();
+        
+        for pixel in pixels.iter() {
+            result += Pixel::insert_pixel(&client, pixel).await.unwrap();
+        }
+
+        Ok(result)
+    }
 
     pub async fn update_all(client: deadpool::managed::Object<Manager>, data: &String) -> Result<u64, Error> {
         // Clear previous data
