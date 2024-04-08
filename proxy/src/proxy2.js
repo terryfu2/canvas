@@ -100,7 +100,12 @@ async function checkPrimaryServerHealth() {
               // Set a specific pixel
               case "set_pixel":
                 console.log("Received message from client:", parsedMessage);
-                backendClient.send_ws(JSON.stringify(parsedMessage.payload));
+                backendClient.send_ws(
+                  JSON.stringify({
+                    ...parsedMessage.payload,
+                    updated: Math.floor(+new Date() / 1000),
+                  })
+                );
                 break;
               case "ping":
                 // receive ping from backup proxy and respond with pong (for health checking purposes)
