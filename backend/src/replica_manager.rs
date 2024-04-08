@@ -2,6 +2,7 @@
 use crate::pixel::Pixel;
 use crate::Msg;
 use deadpool_postgres::Pool;
+use futures::select;
 use futures::FutureExt;
 use rand::{thread_rng, Rng as _};
 use serde_json;
@@ -21,8 +22,6 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::pin;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::{mpsc, oneshot};
-use futures::select;
-
 
 /// A command received by the Replica
 #[derive(Debug)]
@@ -66,7 +65,6 @@ pub struct ConnectionInfoDict {
 }
 
 impl ConnectionInfoDict {
-
     fn get_socket_addr(backend: &Vec<ReplicaInfo>, id: u16) -> SocketAddrV4 {
         let replica_info: &ReplicaInfo = &backend.iter().find(|r| r.id == id).unwrap();
         let addr: Ipv4Addr = replica_info.address.parse::<Ipv4Addr>().unwrap();
@@ -111,21 +109,19 @@ impl ConnectionInfoDict {
     fn get_own_info_str(backend: &Vec<ReplicaInfo>, id: u16) -> String {
         serde_json::to_string(backend.iter().find(|r| r.id == id).unwrap()).unwrap()
     }
-
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct NewConMessage {
     from: ReplicaInfo,
-    effecting: ReplicaInfo
+    effecting: ReplicaInfo,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct SyncMessage {
     pixels: Vec<Pixel>,
-    conn: ConnectionInfoDict
+    conn: ConnectionInfoDict,
 }
-
 
 // TODO calc max size or find it experimentally
 const REPLICA_BUFFER_SIZE: usize = 10240000;
@@ -263,7 +259,6 @@ impl ReplicaManager {
                     }
                 },
 
-
                 _ => {
                     log::info!("Unknown command {}", msg);
                 }
@@ -278,8 +273,12 @@ impl ReplicaManager {
     /// Really these should return errors too, but to lazy to box
     pub async fn handle_pixel_msg(&mut self, msg: String) {
         if self.is_primary {
-            let expected = self.expected_queue.lock().unwrap().pop_front();
-            match expected {
+            /*
+             * This is also consistency stuff that doesnt quite work perfectly
+             * Maybe review and uncomment in the future
+             *
+             let expected = self.expected_queue.lock().unwrap().pop_front();
+             match expected {
                 None => log::warn!("Received unexpected pixel message: {}", msg),
                 Some(expected) => {
                     if expected == msg {
@@ -290,6 +289,9 @@ impl ReplicaManager {
                     }
                 }
             }
+            return;
+            */
+            self.send_replicated_to_ws(msg).await;
             return;
         }
         log::info!("Pixel update received: {}", msg);
@@ -412,17 +414,18 @@ impl ReplicaManager {
         Pixel::update_all_vec(db, &sync.pixels).await.unwrap();
 
         self.connections_info = sync.conn;
-        log::info!("New dict {}", serde_json::to_string(&self.connections_info).unwrap());
+        log::info!(
+            "New dict {}",
+            serde_json::to_string(&self.connections_info).unwrap()
+        );
         let new_str = format!("/sync {}", msg);
         self.send_successor(new_str.as_bytes()).await?;
         Ok(())
     }
 
-
     /// Received a new connection message.
     pub async fn handle_new_connection_msg(&mut self, msg: String) -> io::Result<()> {
-
-        let new_conn_message =  serde_json::from_str::<NewConMessage>(&msg).unwrap();
+        let new_conn_message = serde_json::from_str::<NewConMessage>(&msg).unwrap();
         let from_info = new_conn_message.from;
         let effected_info = new_conn_message.effecting;
         if effected_info.id != self.successor_id {
@@ -440,9 +443,8 @@ impl ReplicaManager {
                 self.successor_id = from_info.id;
                 self.connected = true;
             }
-            Err(e) => log::error!("Couldn't connect to {} because {}", from_info.id, e)
+            Err(e) => log::error!("Couldn't connect to {} because {}", from_info.id, e),
         }
-
 
         Ok(())
     }
@@ -464,8 +466,13 @@ impl ReplicaManager {
             }
         };
 
-        self.connections_info.backend.retain(|backend| backend.id != id);
-        log::info!("New connection dict {}", serde_json::to_string(&self.connections_info).unwrap());
+        self.connections_info
+            .backend
+            .retain(|backend| backend.id != id);
+        log::info!(
+            "New connection dict {}",
+            serde_json::to_string(&self.connections_info).unwrap()
+        );
 
         if id == self.successor_id {
             let new_id =
@@ -512,11 +519,20 @@ impl ReplicaManager {
 
     /// If the predecessor disconnects we need to notify the other replicas and start an election
     /// Return false if it is no longer possible to recover replica manager process
-    pub async fn handle_predecessor_disconnect(&mut self, cmd_rx: &mut UnboundedReceiver<Command>, listener: &TcpListener) -> io::Result<TcpStream> {
+    pub async fn handle_predecessor_disconnect(
+        &mut self,
+        cmd_rx: &mut UnboundedReceiver<Command>,
+        listener: &TcpListener,
+    ) -> io::Result<TcpStream> {
         log::info!("Attempting to connect to new predecessor");
         let id = self.predecessor_id;
-        self.connections_info.backend.retain(|backend| backend.id != id);
-        log::info!("New connection dict {}", serde_json::to_string(&self.connections_info).unwrap());
+        self.connections_info
+            .backend
+            .retain(|backend| backend.id != id);
+        log::info!(
+            "New connection dict {}",
+            serde_json::to_string(&self.connections_info).unwrap()
+        );
 
         if self.connections_info.backend.len() == 1 {
             log::info!("We are only backend left");
@@ -545,7 +561,7 @@ impl ReplicaManager {
     /// Let all ws sessions know that the message was successfully applied to all replicas
     async fn send_replicated_to_ws(&self, msg: String) {
         let msg = format!("replicated: {}", msg);
-        
+
         for (id, session) in &self.sessions {
             log::info!("Sending replicated to session {}", id);
             print!("Sending replicated to session {}", id);
@@ -589,6 +605,9 @@ impl ReplicaManager {
                     return Ok(());
                 }
 
+                /*
+                 * This is the consistency stuff. It nukes performance (maybe) so removing it for now
+                 *
                 if self.is_primary {
                     // Ensure that the message has been fully replicated
                     // We do this by adding the message to an expected message queue
@@ -626,6 +645,8 @@ impl ReplicaManager {
                         }
                     });
                 }
+                */
+
                 self.send_successor(msg.as_bytes()).await?;
                 let _ = res_tx.send(());
             }
@@ -643,9 +664,7 @@ impl ReplicaManager {
             Ok(n) => {
                 // If the predecessor_stream's proc crashes we get some issues
                 if n == 0 {
-                    log::error!(
-                        "Err received size 0 likely predecessor crashed"
-                    );
+                    log::error!("Err received size 0 likely predecessor crashed");
                     return Err(io::ErrorKind::WriteZero.into());
                 }
 
@@ -659,15 +678,12 @@ impl ReplicaManager {
                 } else {
                     log::info!("Received long message from socket");
                 }
-                
+
                 self.handle_replica_msg(predecessor_msg.to_string()).await?;
             }
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                 // This gets called after every update idk why
-                log::error!(
-                    "Err would block (Don't worry about this I think) {}",
-                    e
-                );
+                log::error!("Err would block (Don't worry about this I think) {}", e);
             }
             Err(e) => {
                 log::error!("Err try_read {}", e);
@@ -677,7 +693,11 @@ impl ReplicaManager {
         return Ok(());
     }
 
-    pub async fn handle_accepted_stream(&mut self, stream: &TcpStream, alone: bool) -> io::Result<()> {
+    pub async fn handle_accepted_stream(
+        &mut self,
+        stream: &TcpStream,
+        alone: bool,
+    ) -> io::Result<()> {
         log::info!("Accepting connection");
         let mut predecessor_buf = vec![0; SMALL_REPLICA_BUFFER_SIZE];
         stream.readable().await?;
@@ -686,14 +706,19 @@ impl ReplicaManager {
         let conn_info = match str::from_utf8(&predecessor_buf) {
             Ok(v) => v,
             Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
-        }.trim();
+        }
+        .trim();
         log::info!("Received connection from {}", conn_info);
         let new_conn_info = serde_json::from_str::<ReplicaInfo>(&conn_info).unwrap();
         self.connections_info.backend.push(new_conn_info.clone());
         self.predecessor_id = new_conn_info.id;
-        if alone { // If only replica connect ourselves
+        if alone {
+            // If only replica connect ourselves
             // Parse the IP address
-            let ip: Ipv4Addr = new_conn_info.address.parse().expect("Failed to parse IP address");
+            let ip: Ipv4Addr = new_conn_info
+                .address
+                .parse()
+                .expect("Failed to parse IP address");
 
             // Create a SocketAddrV4 from the parsed IP address and port number
             let socket_addr_v4 = SocketAddrV4::new(ip, new_conn_info.socket_port);
@@ -702,21 +727,30 @@ impl ReplicaManager {
             self.successor_id = new_conn_info.id;
             self.connected = true;
             self.send_initial_sync().await?;
-            return Ok(())
+            return Ok(());
         }
-        let new_conn_message: NewConMessage = NewConMessage {from: new_conn_info, effecting: ConnectionInfoDict::get_own_info(&self.connections_info.backend, self.id).clone()};
-        let new_con_str = format!("/new_connection {}", serde_json::to_string(&new_conn_message).unwrap());
+        let new_conn_message: NewConMessage = NewConMessage {
+            from: new_conn_info,
+            effecting: ConnectionInfoDict::get_own_info(&self.connections_info.backend, self.id)
+                .clone(),
+        };
+        let new_con_str = format!(
+            "/new_connection {}",
+            serde_json::to_string(&new_conn_message).unwrap()
+        );
         self.send_successor(new_con_str.as_bytes()).await?;
         self.send_initial_sync().await?;
-        return Ok(())
+        return Ok(());
     }
 
     /// New replica was added. Lets sync all again
     pub async fn send_initial_sync(&mut self) -> io::Result<()> {
         let db = self.db.get().await.unwrap();
-        let sync = SyncMessage {pixels: Pixel::all(&**db).await.unwrap(), conn: self.connections_info.clone()};
+        let sync = SyncMessage {
+            pixels: Pixel::all(&**db).await.unwrap(),
+            conn: self.connections_info.clone(),
+        };
         let mut sync_str = serde_json::to_string(&sync).unwrap();
-
 
         sync_str = format!("/sync {}", sync_str);
         let sync_bytes = sync_str.as_bytes();
@@ -760,18 +794,21 @@ impl ReplicaManager {
                 }
             }
         }
-        self.connections_info.backend.retain(|backend| backend.active);
-        log::info!("New connection dict {}", serde_json::to_string(&self.connections_info).unwrap());
+        self.connections_info
+            .backend
+            .retain(|backend| backend.active);
+        log::info!(
+            "New connection dict {}",
+            serde_json::to_string(&self.connections_info).unwrap()
+        );
         to_return
     }
-    
-
 
     /// Function to run until the initial connection occurs
     pub async fn event_loop_until_connect(
         &mut self,
         cmd_rx: &mut UnboundedReceiver<Command>,
-        listener: &TcpListener
+        listener: &TcpListener,
     ) -> io::Result<TcpStream> {
         log::info!("Currently only replica running single event loop");
         self.is_primary = true;
@@ -818,16 +855,14 @@ impl ReplicaManager {
         &mut self,
         cmd_rx: &mut UnboundedReceiver<Command>,
         predecessor_stream: &TcpStream,
-        listener: &TcpListener
+        listener: &TcpListener,
     ) -> io::Result<Option<TcpStream>> {
-
         loop {
             let msg_rx = cmd_rx.recv().fuse();
             pin!(msg_rx);
 
             let stream_ready = predecessor_stream.readable().fuse();
             pin!(stream_ready);
-
 
             let accept_connection = listener.accept().fuse();
             pin!(accept_connection);
@@ -870,7 +905,7 @@ impl ReplicaManager {
                 }
             }
         }
-    } 
+    }
 
     pub async fn run(mut self, mut cmd_rx: UnboundedReceiver<Command>) -> io::Result<()> {
         let backend = &self.connections_info.backend;
@@ -879,34 +914,37 @@ impl ReplicaManager {
 
         let mut predecessor_stream = match self.try_connect().await {
             true => {
-                let my_replica_str = ConnectionInfoDict::get_own_info_str(&self.connections_info.backend, self.id);
+                let my_replica_str =
+                    ConnectionInfoDict::get_own_info_str(&self.connections_info.backend, self.id);
                 self.send_successor(my_replica_str.as_bytes()).await?;
                 let (stream, _) = listener.accept().await?;
                 stream
             }
-            false => self.event_loop_until_connect(&mut cmd_rx, &listener).await?
+            false => {
+                self.event_loop_until_connect(&mut cmd_rx, &listener)
+                    .await?
+            }
         };
-
-        
 
         loop {
             match self
                 .replica_stream_process(&mut cmd_rx, &predecessor_stream, &listener)
                 .await
             {
-                Ok(maybe_stream) => {
-                    match maybe_stream {
-                        Some(stream) => {
-                            log::info!("Changing predecessor stream");
-                            predecessor_stream = stream;
-                        }
-                        None => {
-                            log::info!("Rerunning");
-                        }
+                Ok(maybe_stream) => match maybe_stream {
+                    Some(stream) => {
+                        log::info!("Changing predecessor stream");
+                        predecessor_stream = stream;
                     }
-                }
+                    None => {
+                        log::info!("Rerunning");
+                    }
+                },
                 Err(ref e) if e.kind() == io::ErrorKind::WriteZero => {
-                    match self.handle_predecessor_disconnect(&mut cmd_rx,&listener).await {
+                    match self
+                        .handle_predecessor_disconnect(&mut cmd_rx, &listener)
+                        .await
+                    {
                         Ok(stream) => {
                             predecessor_stream = stream;
                         }
