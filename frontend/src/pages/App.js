@@ -5,8 +5,8 @@ import { Pixel } from "../objects/Pixel";
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import { Blocks } from "react-loader-spinner";
 import React, { useCallback, useEffect, useState } from "react";
-import Alert from '@mui/material/Alert';
-import Collapse from '@mui/material/Collapse';
+import Alert from "@mui/material/Alert";
+import Collapse from "@mui/material/Collapse";
 
 const WS_URL = `ws://${process.env.REACT_APP_HTTP_HOST}:${process.env.REACT_APP_HTTP_PORT}/ws`;
 const MAX_RETRY_ATTEMPTS = 100; // Maximum number of retry attempts
@@ -15,11 +15,11 @@ const RETRY_INTERVAL = 1000; // Retry interval in milliseconds
 function App() {
   //const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(WS_URL);
   const [pixels, setPixels] = useState();
-  const [openSuccess,setOpenSuccess] = useState(false);
-  const [openError,setOpenError] = useState(false);
-  const [primaryId,setPrimaryId] = useState(null);
+  const [openSuccess, setOpenSuccess] = useState(false);
+  const [openError, setOpenError] = useState(false);
+  const [primaryId, setPrimaryId] = useState(null);
   const [retryAttempts, setRetryAttempts] = useState(0);
- 
+
   //auto retry coinnection to proxy if not loading, for when proxy crashes
   const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(
     WS_URL,
@@ -43,8 +43,8 @@ function App() {
       retryConnection();
       window.location.reload();
     }
-  }, [readyState, retryAttempts]); 
- 
+  }, [readyState, retryAttempts]);
+
   //message to proxy
   const getPixels = useCallback(
     () =>
@@ -69,7 +69,7 @@ function App() {
   //error popup
   const isError = () => {
     setTimeout(() => {
-      setOpenSuccess(prevOpenSuccess => {
+      setOpenSuccess((prevOpenSuccess) => {
         //console.log(prevOpenSuccess);
         if (!prevOpenSuccess) {
           setOpenError(true);
@@ -77,7 +77,7 @@ function App() {
             setOpenError(false);
           }, 2000);
         }
-        return prevOpenSuccess; 
+        return prevOpenSuccess;
       });
     }, 1000);
   };
@@ -97,18 +97,12 @@ function App() {
             }
           }
           for (let pixel of lastJsonMessage.payload) {
-
-            
             let new_color = pixel.colour.toString(16);
             while (new_color.length < 6) {
-              new_color = '0' + new_color;
+              new_color = "0" + new_color;
             }
             newPixels.push(
-              new Pixel(
-                pixel.x * 10,
-                pixel.y * 10,
-                `#${new_color}`
-              )
+              new Pixel(pixel.x * 10, pixel.y * 10, `#${new_color}`)
             );
           }
           setPixels(newPixels);
@@ -116,26 +110,22 @@ function App() {
         case "set_pixel":
           const payload = lastJsonMessage.payload;
           setOpenSuccess(true);
-          setOpenSuccess(prevState => {
+          setOpenSuccess((prevState) => {
             //console.log("asdf" + prevState);
             setTimeout(() => {
               setOpenSuccess(false);
             }, 2000);
             return true;
           });
-          setPixels(
+          setPixels((pixels) =>
             pixels.map((pixel) => {
               if (pixel.x / 10 === payload.x && pixel.y / 10 === payload.y) {
                 let new_color = payload.colour.toString(16);
                 while (new_color.length < 6) {
-                  new_color = '0' + new_color;
+                  new_color = "0" + new_color;
                 }
-                console.log(`Setting to ${pixel.x}, ${pixel.y}, #${new_color}`)
-                return new Pixel(
-                  pixel.x,
-                  pixel.y,
-                  `#${new_color}`
-                );
+                console.log(`Setting to ${pixel.x}, ${pixel.y}, #${new_color}`);
+                return new Pixel(pixel.x, pixel.y, `#${new_color}`);
               } else {
                 return pixel;
               }
@@ -143,17 +133,15 @@ function App() {
           );
           break;
         case "primary_id":
-            //console.log("app" +lastJsonMessage.payload);
-            //setPrimaryId(lastJsonMessage.payload);
-            setPrimaryId(prevPrimaryId => lastJsonMessage.payload);
-            break;
+          //console.log("app" +lastJsonMessage.payload);
+          //setPrimaryId(lastJsonMessage.payload);
+          setPrimaryId((prevPrimaryId) => lastJsonMessage.payload);
+          break;
         default:
           console.error("Received invalid message:", lastJsonMessage);
       }
     }
   }, [lastJsonMessage]);
-
-  
 
   if (readyState !== ReadyState.OPEN || !pixels) {
     return (
@@ -173,38 +161,45 @@ function App() {
 
   return (
     <div className="App">
-      <Canvas setPixel={setPixel} isError = {isError} pixels={pixels} width={5010} height={5010} primary={primaryId} />
+      <Canvas
+        setPixel={setPixel}
+        isError={isError}
+        pixels={pixels}
+        width={5010}
+        height={5010}
+        primary={primaryId}
+      />
 
       <Collapse in={openSuccess}>
         <Alert
-            style={{
-                position: 'absolute',
-                bottom: '57%', 
-                left: '50%', 
-                transform: 'translateX(-50%)',
-                zIndex: 10000 
-            }}
-            variant="filled"
-            severity="success"
-            >
-            pixel successfully updated!
-            </Alert>
-        </Collapse>
-        <Collapse in={openError}>
+          style={{
+            position: "absolute",
+            bottom: "57%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 10000,
+          }}
+          variant="filled"
+          severity="success"
+        >
+          pixel successfully updated!
+        </Alert>
+      </Collapse>
+      <Collapse in={openError}>
         <Alert
-            style={{
-                position: 'absolute',
-                bottom: '57%', 
-                left: '50%', 
-                transform: 'translateX(-50%)',
-                zIndex: 10000 
-            }}
-            variant="filled"
-            severity="error"
-            >
-            pixel not updated!
-            </Alert>
-        </Collapse>
+          style={{
+            position: "absolute",
+            bottom: "57%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 10000,
+          }}
+          variant="filled"
+          severity="error"
+        >
+          pixel not updated!
+        </Alert>
+      </Collapse>
     </div>
   );
 }
