@@ -78,10 +78,6 @@ fn address() -> String {
     std::env::var("ADDRESS").unwrap_or_else(|_| "127.0.0.1:8000".into())
 }
 
-fn is_primary() -> bool {
-    std::env::var("PRIMARY").unwrap_or_else(|_| "false".into()) == "true"
-}
-
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
@@ -91,8 +87,7 @@ async fn main() -> std::io::Result<()> {
 
     let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
 
-    let is_primary = is_primary();
-    let (replica_handler, tx) = ReplicaManager::new(is_primary, pg_pool.clone(), cmd_tx);
+    let (replica_handler, tx) = ReplicaManager::new(false, pg_pool.clone(), cmd_tx);
 
     
     let replica_join_handle = spawn(replica_handler.run(cmd_rx));

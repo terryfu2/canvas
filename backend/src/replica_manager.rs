@@ -465,6 +465,7 @@ impl ReplicaManager {
         };
 
         self.connections_info.backend.retain(|backend| backend.id != id);
+        log::info!("New connection dict {}", serde_json::to_string(&self.connections_info).unwrap());
 
         if id == self.successor_id {
             let new_id =
@@ -515,9 +516,11 @@ impl ReplicaManager {
         log::info!("Attempting to connect to new predecessor");
         let id = self.predecessor_id;
         self.connections_info.backend.retain(|backend| backend.id != id);
+        log::info!("New connection dict {}", serde_json::to_string(&self.connections_info).unwrap());
 
         if self.connections_info.backend.len() == 1 {
             log::info!("We are only backend left");
+            self.send_primary_to_ws().await;
             return self.event_loop_until_connect(cmd_rx, listener).await;
         }
 
@@ -573,11 +576,16 @@ impl ReplicaManager {
             Command::Connect { conn_tx, res_tx } => {
                 let conn_id = self.register_session(conn_tx).await;
                 let _ = res_tx.send(conn_id);
+                if self.is_primary {
+                    self.send_primary_to_ws().await;
+                }
             }
             Command::Message { msg, res_tx } => {
                 log::info!("Message received: {}", msg);
                 if !self.connected {
                     log::info!("Only replica, ignoring message");
+                    let _ = res_tx.send(());
+                    self.send_replicated_to_ws(msg).await;
                     return Ok(());
                 }
 
@@ -753,6 +761,7 @@ impl ReplicaManager {
             }
         }
         self.connections_info.backend.retain(|backend| backend.active);
+        log::info!("New connection dict {}", serde_json::to_string(&self.connections_info).unwrap());
         to_return
     }
     
@@ -941,7 +950,7 @@ impl ReplicaHandle {
         res_rx.await.unwrap()
     }
 
-    /// Send message to next replica
+    /// Send message to manager
     pub async fn send_message(&self, msg: impl Into<String>) {
         let (res_tx, res_rx) = oneshot::channel();
 

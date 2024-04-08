@@ -21,7 +21,7 @@ class BackendInstance {
     // TODO reimplement this, but have it work
     // Attempt to reconnect after timeout
     // this.reconnectAttempts++;
-    // setTimeout(this.connect, this.reconnectAttempts*this.backoffTime);
+    setTimeout(() => this.connect(), 5000);
   }
 
   onMessage(message) {
@@ -95,7 +95,7 @@ class BackendInstance {
         error.message
       );
       // Change this to onError
-      this.onClose();
+      // this.onClose();
     });
 
     this.ws_connection.on("message", (message) => {
