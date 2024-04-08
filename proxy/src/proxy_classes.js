@@ -65,14 +65,12 @@ class BackendInstance {
   }
 
   onSetPixel(message) {
+    let json_message = JSON.stringify({
+      command: "set_pixel",
+      payload: message,
+    });
     this.clientServer.clients.forEach((clientSocket) => {
-      //console.log(`Sending pixel update`);
-      clientSocket.send(
-        JSON.stringify({
-          command: "set_pixel",
-          payload: message,
-        })
-      );
+      clientSocket.send(json_message);
     });
   }
 
