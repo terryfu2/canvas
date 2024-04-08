@@ -126,5 +126,5 @@ async function checkPrimaryServerHealth() {
 
 console.log("Initial value of health check paused:", healthChecksPaused);
 // Poll the primary proxy server health endpoint at regular intervals
-const healthCheckInterval = 10000; // Interval in milliseconds
+const healthCheckInterval = 1000; // Interval in milliseconds
 const interval = setInterval(checkPrimaryServerHealth, healthCheckInterval);
