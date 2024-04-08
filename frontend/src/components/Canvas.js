@@ -127,16 +127,23 @@ const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
         return;
     }*/
     setConfirmClicked(true);
-
+    console.log(`Confirm color ${color}`);
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
     clickedPixel.setColor(color);
     ctx.fillStyle = color; // Set color
-    let colorNum = Number(
-      `0x${new Color(color).toString({ format: "hex" }).substring(1)}`
-    ); // there must be a better way
-    //console.log(colorNum);
+    let colorNum = 0;
+    if (color.startsWith('#')) {
+      colorNum = Number(
+        `0x${color.substring(1)}`
+      );
+    } else {
+      colorNum = Number(
+        `0x${new Color(color).toString({ format: "hex" }).substring(1)}`
+      ); // there must be a better way
+    }
+
     ctx.fillRect(clickedPixel.x, clickedPixel.y, 10, 10);
     setPixel(clickedPixel.x, clickedPixel.y, colorNum);
 

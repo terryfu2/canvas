@@ -88,7 +88,6 @@ function App() {
   //received json message, parse accordingly
   useEffect(() => {
     if (lastJsonMessage !== null) {
-     //(lastJsonMessage);
       switch (lastJsonMessage.command) {
         case "get_pixels":
           const newPixels = [];
@@ -98,11 +97,17 @@ function App() {
             }
           }
           for (let pixel of lastJsonMessage.payload) {
+
+            
+            let new_color = pixel.colour.toString(16);
+            while (new_color.length < 6) {
+              new_color = '0' + new_color;
+            }
             newPixels.push(
               new Pixel(
                 pixel.x * 10,
                 pixel.y * 10,
-                `#${pixel.colour.toString(16)}`
+                `#${new_color}`
               )
             );
           }
@@ -118,17 +123,18 @@ function App() {
             }, 2000);
             return true;
           });
-          //console.log("asdf"+openSuccess);
-          setTimeout(() => {
-            setOpenSuccess(false);
-            }, 2000); 
           setPixels(
             pixels.map((pixel) => {
               if (pixel.x / 10 === payload.x && pixel.y / 10 === payload.y) {
+                let new_color = payload.colour.toString(16);
+                while (new_color.length < 6) {
+                  new_color = '0' + new_color;
+                }
+                console.log(`Setting to ${pixel.x}, ${pixel.y}, #${new_color}`)
                 return new Pixel(
                   pixel.x,
                   pixel.y,
-                  `#${payload.colour.toString(16)}`
+                  `#${new_color}`
                 );
               } else {
                 return pixel;
