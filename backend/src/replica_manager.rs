@@ -798,6 +798,7 @@ impl ReplicaManager {
                     },
                     Err(e) => {
                         log::error!("Timeout {} {}", backend.id, e);
+                        backend.active = false;
                     }
                 }
             }
