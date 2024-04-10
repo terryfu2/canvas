@@ -13,8 +13,8 @@ def worker(worker_id, num_workers, start_time):
     ws.connect("ws://localhost:3001/ws")
 
     square_size = math.floor(math.sqrt(num_workers))
-    x = worker_id % square_size + 350
-    y = math.floor(worker_id / square_size) + 250
+    x = worker_id % square_size
+    y = math.floor(worker_id / square_size)
 
     # Function to calculate gradient color
     def calculate_gradient_color():
@@ -69,7 +69,7 @@ def worker(worker_id, num_workers, start_time):
 
 
 # Create 10 workers
-num_workers = int(math.pow(20, 2))
+num_workers = int(math.pow(10, 2))
 start_time = time.time()
 for i in range(num_workers):
     threading.Thread(target=worker, args=(

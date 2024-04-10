@@ -5,8 +5,8 @@ import PixelPopUp from "./common/PixelPopUp";
 import Footer from "./footer/Footer";
 
 //canvas component, contains actual canvas, footer and dialog
-const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
-  const canvasRef = useRef(null); 
+const Canvas = ({ setPixel, isError, width, height, pixels, primary }) => {
+  const canvasRef = useRef(null);
 
   const [dialogCoordinates, setDialogCoordinates] = useState(null);
   const [hoveredPixel, setHoveredPixel] = useState({ x: 0, y: 0 });
@@ -14,25 +14,25 @@ const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
   const [confirmClicked, setConfirmClicked] = useState(false);
   const [timeoutEnabled, setTimeoutEnabled] = useState(false);
 
-  const [canClickPixel,setCanClickPixel] = useState(true);
-  const [isMouseMoved,setIsMouseMoved] = useState(false);
+  const [canClickPixel, setCanClickPixel] = useState(true);
+  const [isMouseMoved, setIsMouseMoved] = useState(false);
 
-  const [primaryId,setPrimaryId] = useState(null);
+  const [primaryId, setPrimaryId] = useState(null);
 
   const [mapState, setMapState] = useState({
-    scale: 0.8,
-    translation: { x: 25, y: 25 },
+    scale: 6,
+    translation: { x: 325, y: 70 },
   });
 
   useEffect(() => {
-    setPrimaryId(prevPrimaryId => primary);
-}, [primary]);
+    setPrimaryId((prevPrimaryId) => primary);
+  }, [primary]);
 
   // Redraw the canvas when the pixel data changes
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    
+
     ctx.clearRect(0, 0, width, height);
 
     pixels.forEach(({ x, y, color }) => {
@@ -53,9 +53,8 @@ const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
 
   //pixel is clicked, get information
   const handleClickPixel = (event) => {
-
-    if(!canClickPixel){
-        return;
+    if (!canClickPixel) {
+      return;
     }
     const rect = event.target.getBoundingClientRect();
     const clickedX = (event.clientX - rect.left) / mapState.scale;
@@ -134,10 +133,8 @@ const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
     clickedPixel.setColor(color);
     ctx.fillStyle = color; // Set color
     let colorNum = 0;
-    if (color.startsWith('#')) {
-      colorNum = Number(
-        `0x${color.substring(1)}`
-      );
+    if (color.startsWith("#")) {
+      colorNum = Number(`0x${color.substring(1)}`);
     } else {
       colorNum = Number(
         `0x${new Color(color).toString({ format: "hex" }).substring(1)}`
@@ -150,56 +147,51 @@ const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
     setDialogCoordinates(null);
     setClickedPixel(null);
     isError();
-    if(timeoutEnabled){
-        setTimeout(() => {
-            setConfirmClicked(false);
-        }, 9000);     
-    }
-    if(!timeoutEnabled){
+    if (timeoutEnabled) {
+      setTimeout(() => {
         setConfirmClicked(false);
+      }, 9000);
+    }
+    if (!timeoutEnabled) {
+      setConfirmClicked(false);
     }
   };
 
   const handleSwitchChange = (data) => {
     setTimeoutEnabled(!timeoutEnabled);
     console.log(timeoutEnabled);
-
   };
 
   //bad attempt at trying to fix error in mouse click being registered when dragging
-  const handleDragStart = (event) =>{
-
+  const handleDragStart = (event) => {
     setIsMouseMoved(false);
     setCanClickPixel(false);
-  }
-  const handleDragEnd = (event) =>{
-
-    if(isMouseMoved){
-        setTimeout(() => {
-            setCanClickPixel(true);
-            setIsMouseMoved(false)
-        }, 1000); 
-    }
-    else{
+  };
+  const handleDragEnd = (event) => {
+    if (isMouseMoved) {
+      setTimeout(() => {
         setCanClickPixel(true);
-
+        setIsMouseMoved(false);
+      }, 1000);
+    } else {
+      setCanClickPixel(true);
     }
-  }
+  };
 
   return (
     <div>
       <MapInteractionCSS
         showControls
-        value={mapState} 
-        onChange={(value) => setMapState(value)} 
-        minScale={0.6}
-        maxScale={20}
+        value={mapState}
+        onChange={(value) => setMapState(value)}
+        minScale={6}
+        maxScale={25}
       >
         <canvas
           ref={canvasRef}
           width={width}
           height={height}
-          draggable = {true}
+          draggable={true}
           style={{
             width: "100%",
             height: "100%",
@@ -208,8 +200,8 @@ const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
           }}
           onClick={handleClickPixel}
           onMouseMove={handleMouseMove}
-          onMouseDown = {handleDragStart}
-          onMouseUp = {handleDragEnd}
+          onMouseDown={handleDragStart}
+          onMouseUp={handleDragEnd}
         />
       </MapInteractionCSS>
 
@@ -220,15 +212,15 @@ const Canvas = ({ setPixel,isError, width, height, pixels,primary }) => {
           color={dialogCoordinates.color}
           onClose={handleCloseDialog}
           onConfirm={handleConfirm}
-          disabledConfirm = {confirmClicked}
+          disabledConfirm={confirmClicked}
         />
       )}
 
       <Footer
         x={hoveredPixel ? hoveredPixel.x : 0}
         y={hoveredPixel ? hoveredPixel.y : 0}
-        sendTimeout = {handleSwitchChange}
-        primaryId = {primaryId}
+        sendTimeout={handleSwitchChange}
+        primaryId={primaryId}
       ></Footer>
     </div>
   );
