@@ -122,6 +122,7 @@ pub struct SyncMessage {
     pixels: Vec<Pixel>,
     conn: ConnectionInfoDict,
     leader: u16,
+    predecessor_id: u16,
 }
 
 // TODO calc max size or find it experimentally
@@ -183,6 +184,8 @@ pub struct ReplicaManager {
     expected_queue: Arc<Mutex<VecDeque<String>>>,
 
     connected: bool,
+
+    sent_sync: bool,
 }
 
 impl ReplicaManager {
@@ -225,6 +228,7 @@ impl ReplicaManager {
                 leader_id,
                 expected_queue,
                 connected: false,
+                sent_sync: false
             },
             ReplicaHandle { cmd_tx },
         )
@@ -418,9 +422,30 @@ impl ReplicaManager {
 
     pub async fn handle_sync_msg(&mut self, msg: String) -> io::Result<()> {
         log::info!("Got sync");
-        let sync: SyncMessage = serde_json::from_str(&msg).unwrap();
+        let mut sync: SyncMessage = serde_json::from_str(&msg).unwrap();
+        self.predecessor_id = sync.predecessor_id;
         if self.is_primary {
             // We already updated our database, do nothing
+            if !self.sent_sync {
+                self.connections_info = sync.conn.clone();
+                log::info!(
+                    "New dict {}",
+                    serde_json::to_string(&self.connections_info).unwrap()
+                );
+                // self.predecessor_id = ConnectionInfoDict::get_predecessor_id(&self.connections_info.backend, self.id);
+                log::info!("Successor id {}", self.successor_id);
+                log::info!("Predecessor id {}", self.predecessor_id);
+                self.leader_id = sync.leader;
+                log::info!("Our leader is {}", self.leader_id);
+                self.send_initial_sync().await?;
+            } else {
+                self.sent_sync = false;
+                log::info!("Successor id {}", self.successor_id);
+                log::info!("Predecessor id {}", self.predecessor_id);
+                log::info!("Our leader is {}", self.leader_id);
+            }
+
+            
             return Ok(());
         }
         log::info!("All pixels update received");
@@ -428,14 +453,19 @@ impl ReplicaManager {
         let db = self.db.get().await.unwrap();
         Pixel::update_all_vec(db, &sync.pixels).await.unwrap();
 
-        self.connections_info = sync.conn;
+        self.connections_info = sync.conn.clone();
         log::info!(
             "New dict {}",
             serde_json::to_string(&self.connections_info).unwrap()
         );
+        log::info!("Successor id {}", self.successor_id);
+        log::info!("Predecessor id {}", self.predecessor_id);
         self.leader_id = sync.leader;
         log::info!("Our leader is {}", self.leader_id);
-        let new_str = format!("/sync {}", msg);
+
+        sync.predecessor_id = self.id;
+        let sync_str = serde_json::to_string(&sync).unwrap();
+        let new_str = format!("/sync {}", sync_str);
         self.send_successor(new_str.as_bytes()).await?;
         Ok(())
     }
@@ -490,6 +520,9 @@ impl ReplicaManager {
             "New connection dict {}",
             serde_json::to_string(&self.connections_info).unwrap()
         );
+        log::info!("Successor id {}", self.successor_id);
+        log::info!("Predecessor id {}", self.predecessor_id);
+        log::info!("Leader id {}", self.leader_id);
 
         if id == self.successor_id {
             let new_id =
@@ -550,6 +583,9 @@ impl ReplicaManager {
             "New connection dict {}",
             serde_json::to_string(&self.connections_info).unwrap()
         );
+        log::info!("Successor id {}", self.successor_id);
+        log::info!("Predecessor id {}", self.predecessor_id);
+        log::info!("Leader id {}", self.leader_id);
 
         if self.connections_info.backend.len() == 1 {
             log::info!("We are only backend left");
@@ -562,6 +598,7 @@ impl ReplicaManager {
         self.send_successor(msg.as_bytes()).await?;
 
         let (predecessor_stream, _) = listener.accept().await?;
+        self.predecessor_id = ConnectionInfoDict::get_predecessor_id(&self.connections_info.backend, self.id);
         return Ok(predecessor_stream);
     }
 
@@ -753,11 +790,13 @@ impl ReplicaManager {
 
     /// New replica was added. Lets sync all again
     pub async fn send_initial_sync(&mut self) -> io::Result<()> {
+        self.sent_sync = true;
         let db = self.db.get().await.unwrap();
         let sync = SyncMessage {
             pixels: Pixel::all(&**db).await.unwrap(),
             conn: self.connections_info.clone(),
-            leader: self.leader_id
+            leader: self.leader_id,
+            predecessor_id: self.id,
         };
         let mut sync_str = serde_json::to_string(&sync).unwrap();
 
@@ -822,6 +861,10 @@ impl ReplicaManager {
             "New connection dict {}",
             serde_json::to_string(&self.connections_info).unwrap()
         );
+        log::info!("Successor id {}", self.successor_id);
+        log::info!("Predecessor id {}", self.predecessor_id);
+        log::info!("Leader id {}", self.leader_id);
+        
         to_return
     }
 
@@ -834,6 +877,7 @@ impl ReplicaManager {
         log::info!("Currently only replica running single event loop");
         self.is_primary = true;
         self.connected = false;
+        self.leader_id = self.id;
         loop {
             let msg_rx = cmd_rx.recv().fuse();
             pin!(msg_rx);
