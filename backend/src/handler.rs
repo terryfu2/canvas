@@ -1,5 +1,5 @@
+use crate::Msg;
 use crate::ReplicaHandle;
-use crate::{pixel::Pixel, Msg};
 use actix_web::web;
 use actix_ws::Message;
 use deadpool_postgres::Pool;
@@ -65,8 +65,6 @@ pub async fn canvas_ws(
 
                     Message::Text(text) => {
                         log::debug!("msg: {text:?}");
-                        let db = pool.get().await.unwrap();
-                        Pixel::insert(db, text.to_string()).await.unwrap();
                         replica_handle.send_message(text).await
                     }
 

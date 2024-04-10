@@ -273,25 +273,20 @@ impl ReplicaManager {
     /// Really these should return errors too, but to lazy to box
     pub async fn handle_pixel_msg(&mut self, msg: String) {
         if self.is_primary {
-            /*
-             * This is also consistency stuff that doesnt quite work perfectly
-             * Maybe review and uncomment in the future
-             *
-             let expected = self.expected_queue.lock().unwrap().pop_front();
-             match expected {
+            let expected = self.expected_queue.lock().unwrap().pop_front();
+            match expected {
                 None => log::warn!("Received unexpected pixel message: {}", msg),
                 Some(expected) => {
                     if expected == msg {
                         log::info!("Validated expected pixel message: {}", msg);
+                        let db = self.db.get().await.unwrap();
+                        Pixel::insert(db, msg.clone()).await.unwrap();
                         self.send_replicated_to_ws(msg).await;
                     } else {
                         log::info!("Invalid pixel message: {}, expected: {}", msg, expected);
                     }
                 }
             }
-            return;
-            */
-            self.send_replicated_to_ws(msg).await;
             return;
         }
         log::info!("Pixel update received: {}", msg);
@@ -605,9 +600,6 @@ impl ReplicaManager {
                     return Ok(());
                 }
 
-                /*
-                 * This is the consistency stuff. It nukes performance (maybe) so removing it for now
-                 *
                 if self.is_primary {
                     // Ensure that the message has been fully replicated
                     // We do this by adding the message to an expected message queue
@@ -628,24 +620,18 @@ impl ReplicaManager {
                         let mut queue = queue_clone.lock().unwrap();
                         if let Some(expected) = queue.front() {
                             if expected.as_str() == msg_clone {
-                                log::info!(
-                                    "Expected message was not received after 5 seconds"
-                                );
+                                log::info!("Expected message was not received after 5 seconds");
                                 queue.pop_front();
 
                                 let ws_msg = format!("unreplicated: {}", msg_clone);
                                 for (id, session) in sessions_clone {
-                                    log::info!(
-                                        "Sending unreplicated to session {}",
-                                        id
-                                    );
+                                    log::info!("Sending unreplicated to session {}", id);
                                     let _ = session.send(ws_msg.clone());
                                 }
                             }
                         }
                     });
                 }
-                */
 
                 self.send_successor(msg.as_bytes()).await?;
                 let _ = res_tx.send(());
