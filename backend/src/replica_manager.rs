@@ -126,8 +126,8 @@ pub struct SyncMessage {
 }
 
 // TODO calc max size or find it experimentally
-const REPLICA_BUFFER_SIZE: usize = 10240000;
-const SMALL_REPLICA_BUFFER_SIZE: usize = 10000;
+const REPLICA_BUFFER_SIZE: usize = 1400;
+const SMALL_REPLICA_BUFFER_SIZE: usize = 1400;
 
 fn connections_file() -> String {
     std::env::var("CONNECTIONS_FILE").unwrap_or_else(|_| "../../process_connections.json".into())
@@ -186,6 +186,8 @@ pub struct ReplicaManager {
     connected: bool,
 
     sent_sync: bool,
+    sync_ended: bool,
+    sync_message: String
 }
 
 impl ReplicaManager {
@@ -228,7 +230,9 @@ impl ReplicaManager {
                 leader_id,
                 expected_queue,
                 connected: false,
-                sent_sync: false
+                sent_sync: false,
+                sync_ended: false,
+                sync_message: "".to_string(),
             },
             ReplicaHandle { cmd_tx },
         )
@@ -281,7 +285,11 @@ impl ReplicaManager {
                 }
             }
         } else {
-            self.handle_pixel_msg(msg).await;
+            if !self.sync_ended {
+                self.handle_sync_msg(msg).await?;
+            } else {
+                self.handle_pixel_msg(msg).await;
+            }
         }
         return Ok(());
     }
@@ -420,8 +428,26 @@ impl ReplicaManager {
         return Ok(());
     }
 
-    pub async fn handle_sync_msg(&mut self, msg: String) -> io::Result<()> {
+    pub async fn handle_sync_msg(&mut self, recv: String) -> io::Result<()> {
         log::info!("Got sync");
+        self.sync_ended = false;
+        let mut msg = "".to_string();
+        self.sync_message = format!("{}{}", self.sync_message, recv);
+        if self.sync_message.contains("^^^^") {
+            let original_len = self.sync_message.len();
+            self.sync_message.drain(original_len - 4..);
+            msg = self.sync_message.clone();
+            self.sync_ended = true;
+            self.sync_message = "".to_string();
+            log::info!("SYNC OVER {}", msg);
+        } else {
+            return Ok(());
+        }
+
+
+
+
+
         let mut sync: SyncMessage = serde_json::from_str(&msg).unwrap();
         self.predecessor_id = sync.predecessor_id;
         if self.is_primary {
@@ -465,7 +491,7 @@ impl ReplicaManager {
 
         sync.predecessor_id = self.id;
         let sync_str = serde_json::to_string(&sync).unwrap();
-        let new_str = format!("/sync {}", sync_str);
+        let new_str = format!("/sync {}^^^^", sync_str);
         self.send_successor(new_str.as_bytes()).await?;
         Ok(())
     }
@@ -800,7 +826,7 @@ impl ReplicaManager {
         };
         let mut sync_str = serde_json::to_string(&sync).unwrap();
 
-        sync_str = format!("/sync {}", sync_str);
+        sync_str = format!("/sync {}^^^^", sync_str);
         let sync_bytes = sync_str.as_bytes();
         log::info!("Sending {} bytes", sync_bytes.len());
         self.send_successor(sync_bytes).await?;
