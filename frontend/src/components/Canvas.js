@@ -141,7 +141,7 @@ const Canvas = ({ setPixel, isError, width, height, pixels, primary }) => {
       ); // there must be a better way
     }
 
-    ctx.fillRect(clickedPixel.x, clickedPixel.y, 10, 10);
+    // ctx.fillRect(clickedPixel.x, clickedPixel.y, 10, 10);
     setPixel(clickedPixel.x, clickedPixel.y, colorNum);
 
     setDialogCoordinates(null);
