@@ -75,7 +75,7 @@ function App() {
           setOpenError(true);
           setTimeout(() => {
             setOpenError(false);
-          }, 5000);
+          }, 10000);
         }
         return prevOpenSuccess;
       });
