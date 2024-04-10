@@ -10,7 +10,7 @@ async function checkServerHealth() {
   return new Promise((resolve, reject) => {
     try {
       // connect through websocket to primary proxy server
-      const primaryProxyWs = new WebSocket("ws://localhost:3001");
+      const primaryProxyWs = new WebSocket("ws://0.0.0.0:3001");
       primaryProxyWs.on("open", function open() {
         console.log("Connected to primary proxy.");
 

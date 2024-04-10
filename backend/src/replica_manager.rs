@@ -121,6 +121,7 @@ pub struct NewConMessage {
 pub struct SyncMessage {
     pixels: Vec<Pixel>,
     conn: ConnectionInfoDict,
+    leader: u16,
 }
 
 // TODO calc max size or find it experimentally
@@ -413,6 +414,8 @@ impl ReplicaManager {
             "New dict {}",
             serde_json::to_string(&self.connections_info).unwrap()
         );
+        self.leader_id = sync.leader;
+        log::info!("Our leader is {}", self.leader_id);
         let new_str = format!("/sync {}", msg);
         self.send_successor(new_str.as_bytes()).await?;
         Ok(())
@@ -536,7 +539,7 @@ impl ReplicaManager {
         }
 
         let msg = format!("/disconnect {}", self.predecessor_id);
-        log::info!("Sending {}", msg);
+        log::info!("Sending {} to {}", msg, self.successor_id);
         self.send_successor(msg.as_bytes()).await?;
 
         let (predecessor_stream, _) = listener.accept().await?;
@@ -735,6 +738,7 @@ impl ReplicaManager {
         let sync = SyncMessage {
             pixels: Pixel::all(&**db).await.unwrap(),
             conn: self.connections_info.clone(),
+            leader: self.leader_id
         };
         let mut sync_str = serde_json::to_string(&sync).unwrap();
 

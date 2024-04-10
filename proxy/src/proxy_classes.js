@@ -114,7 +114,7 @@ class BackendInstance {
       })
       .on("error", (error) => {
         console.error(
-          `BACKEND ${id}::Error making request to backend:`,
+          `BACKEND ${this.id}::Error making request to backend:`,
           error.message
         );
       });
@@ -146,7 +146,7 @@ class BackendConnection {
       );
       this.backendInstances.push(backendConnection);
     });
-    this.backendInstances[0].primary = true;
+    // this.backendInstances[0].primary = true;
   }
 
   find_primary() {
