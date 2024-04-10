@@ -79,7 +79,7 @@ function App() {
         }
         return prevOpenSuccess;
       });
-    }, 1000);
+    }, 5000);
   };
 
   useEffect(() => {
