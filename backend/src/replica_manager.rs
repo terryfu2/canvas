@@ -1047,9 +1047,23 @@ impl ReplicaManager {
                         }
                     }
                 }
-                Err(ref e) => {
-                    log::info!("Received error {} attempting to exit", e);
+                Err(ref e) if e.kind() == io::ErrorKind::Other => {
+                    log::info!("Received Ctrl-c error {} ", e);
                     break;
+                }
+                Err(ref e) => {
+                    match self
+                        .handle_predecessor_disconnect(&mut cmd_rx, &listener)
+                        .await
+                    {
+                        Ok(stream) => {
+                            predecessor_stream = stream;
+                        }
+                        Err(e) => {
+                            log::error!("Disconnect could not be handled with error {}", e);
+                            break;
+                        }
+                    }
                 }
             }
         }
