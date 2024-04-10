@@ -763,18 +763,27 @@ impl ReplicaManager {
                     }
                 };
                 log::info!("Trying to connect to {}", addr);
-                match TcpStream::connect(SocketAddrV4::new(addr, backend.socket_port)).await {
-                    Ok(stream) => {
-                        log::info!("Connected to {}", addr);
-                        self.successor_stream = Some(stream);
-                        self.successor_id = backend.id;
-                        self.connected = true;
-                        self.is_primary = false;
-                        to_return = true;
-                        break;
-                    }
+
+                match tokio::time::timeout(Duration::from_secs(2), TcpStream::connect(SocketAddrV4::new(addr, backend.socket_port))).await {
+                    Ok(res) => {
+                        match res {
+                            Ok(stream) => {
+                                log::info!("Connected to {}", addr);
+                                self.successor_stream = Some(stream);
+                                self.successor_id = backend.id;
+                                self.connected = true;
+                                self.is_primary = false;
+                                to_return = true;
+                                break;
+                            },
+                            Err(e) => {
+                                log::error!("Couldn't connect to {} because {}", backend.id, e);
+                                backend.active = false;
+                            }
+                        }
+                    },
                     Err(e) => {
-                        log::error!("Couldn't connect to {} because {}", backend.id, e);
+                        log::error!("Timeout {} {}", backend.id, e);
                         backend.active = false;
                     }
                 }

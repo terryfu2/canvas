@@ -11,6 +11,12 @@ A distributed recreation of [r/place](https://en.wikipedia.org/wiki/R/place)
 ## Architecture  
 ![plot](./imgs/arch.PNG)
 
+
+## Features
+- Replicated Proxy and Backend Processes
+- Detection of Failure and auto reconnection to processes when brought back up
+- Live Updates across Clients
+
 ## Setup
 
 ### Frontend
