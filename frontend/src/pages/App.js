@@ -75,11 +75,11 @@ function App() {
           setOpenError(true);
           setTimeout(() => {
             setOpenError(false);
-          }, 2000);
+          }, 10000);
         }
         return prevOpenSuccess;
       });
-    }, 1000);
+    }, 5000);
   };
 
   useEffect(() => {
