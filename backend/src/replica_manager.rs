@@ -679,6 +679,8 @@ impl ReplicaManager {
             Command::Message { msg, res_tx } => {
                 log::info!("Message received: {}", msg);
                 if !self.connected {
+                    let db = self.db.get().await.unwrap();
+                    Pixel::insert(db, msg.clone()).await.unwrap();
                     log::info!("Only replica, ignoring message");
                     let _ = res_tx.send(());
                     self.send_replicated_to_ws(msg).await;
