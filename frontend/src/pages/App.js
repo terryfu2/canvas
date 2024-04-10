@@ -75,11 +75,11 @@ function App() {
           setOpenError(true);
           setTimeout(() => {
             setOpenError(false);
-          }, 10000);
+          }, 2000);
         }
         return prevOpenSuccess;
       });
-    }, 5000);
+    }, 2000);
   };
 
   useEffect(() => {
@@ -88,6 +88,7 @@ function App() {
   //received json message, parse accordingly
   useEffect(() => {
     if (lastJsonMessage !== null) {
+      //console.log(lastJsonMessage)
       switch (lastJsonMessage.command) {
         case "get_pixels":
           const newPixels = [];
@@ -169,7 +170,7 @@ function App() {
         height={5010}
         primary={primaryId}
       />
-
+      
       <Collapse in={openSuccess}>
         <Alert
           style={{
@@ -183,7 +184,7 @@ function App() {
           severity="success"
         >
           pixel successfully updated!
-        </Alert>
+        </Alert> 
       </Collapse>
       <Collapse in={openError}>
         <Alert
