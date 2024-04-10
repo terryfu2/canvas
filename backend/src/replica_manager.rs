@@ -139,6 +139,18 @@ fn proc_id() -> u16 {
         .unwrap_or_else(|_| 0)
 }
 
+fn is_debug_enabled() -> bool {
+    match std::env::var("DEBUG") {
+        Ok(val) => {
+            if val == "1" || val.to_lowercase() == "true" {
+                true
+            } else {
+                false
+            }
+        }
+        Err(_) => false,
+    }
+}
 /// Manages the messages to and from replicas.
 ///
 ///
@@ -273,6 +285,13 @@ impl ReplicaManager {
     /// Normal pixel update, add it to db
     /// Really these should return errors too, but to lazy to box
     pub async fn handle_pixel_msg(&mut self, msg: String) {
+        // For testing consistency
+        if is_debug_enabled() {
+            log::info!("Pixel update received: {}", msg);
+            log::info!("DEBUG is enabled so we are not sending to successor");
+            return;
+        }
+
         if self.is_primary {
             let expected = self.expected_queue.lock().unwrap().pop_front();
             match expected {
@@ -768,22 +787,25 @@ impl ReplicaManager {
                 };
                 log::info!("Trying to connect to {}", addr);
 
-                match tokio::time::timeout(Duration::from_secs(2), TcpStream::connect(SocketAddrV4::new(addr, backend.socket_port))).await {
-                    Ok(res) => {
-                        match res {
-                            Ok(stream) => {
-                                log::info!("Connected to {}", addr);
-                                self.successor_stream = Some(stream);
-                                self.successor_id = backend.id;
-                                self.connected = true;
-                                self.is_primary = false;
-                                to_return = true;
-                                break;
-                            },
-                            Err(e) => {
-                                log::error!("Couldn't connect to {} because {}", backend.id, e);
-                                backend.active = false;
-                            }
+                match tokio::time::timeout(
+                    Duration::from_secs(2),
+                    TcpStream::connect(SocketAddrV4::new(addr, backend.socket_port)),
+                )
+                .await
+                {
+                    Ok(res) => match res {
+                        Ok(stream) => {
+                            log::info!("Connected to {}", addr);
+                            self.successor_stream = Some(stream);
+                            self.successor_id = backend.id;
+                            self.connected = true;
+                            self.is_primary = false;
+                            to_return = true;
+                            break;
+                        }
+                        Err(e) => {
+                            log::error!("Couldn't connect to {} because {}", backend.id, e);
+                            backend.active = false;
                         }
                     },
                     Err(e) => {

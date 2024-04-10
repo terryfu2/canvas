@@ -113,6 +113,19 @@
         "runOptions": {
           "runOn": "folderOpen"
         }
+      },
+      {
+        "label": "replica-3-debug",
+        "type": "shell",
+        "command": "cargo run --config ./.cargo/config2-debug.toml",
+        "options": {
+          "cwd": "${workspaceFolder:backend}"
+        },
+        "presentation": {
+          "reveal": "silent",
+          "group": "cpsc559-backend",
+          "panel": "dedicated"
+        }
       }
     ]
   }

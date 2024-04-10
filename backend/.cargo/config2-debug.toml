@@ -1,0 +1,16 @@
+[env]
+USER="root"
+ROCKET_ADDRESS="0.0.0.0"
+ROCKET_ENV="development"
+ADDRESS="0.0.0.0:8002"
+RUST_LOG="debug"
+PG_DBNAME="postgres"
+PG_HOST="localhost"
+PG_PORT="5434"
+PG_USER="postgres"
+PG_PASSWORD="<your_pass>"
+
+PRIMARY="false"
+ID="0"
+DEBUG="true"
+CONNECTIONS_FILE="../process_connections.json"
